@@ -1,0 +1,130 @@
+﻿@model ConfigurationModel
+
+@{
+    Layout = "_ConfigurePlugin";
+}
+
+@await Component.InvokeAsync("StoreScopeConfiguration")
+
+<form asp-controller="XummConfiguration" asp-action="Configure" method="post">
+    <div class="card card-default">
+        <h5 class="card-header">@Html.Raw(T("Plugins.Payments.Xumm.Section.ApiSettings").Text)</h5>
+        <div class="card-body">
+            @Html.Raw(string.Format(T("Plugins.Payments.Xumm.Section.ApiSettings.Instructions").Text, Url.RouteUrl(Defaults.WebHooks.RouteName, null, webHelper.GetCurrentRequestProtocol())))
+
+            <div class="form-group row" id="liveApiKey">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="ApiKey_OverrideForStore" asp-input="ApiKey" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="ApiKey" />
+                </div>
+                <div class="col-md-6">
+                    <nop-editor asp-for="ApiKey" asp-required="true" />
+                    <span asp-validation-for="ApiKey"></span>
+                </div>
+            </div>
+            <div class="form-group row" id="liveApiSecret">
+                <div class="col-md-3">
+                    <nop-override-store-checkbox asp-for="ApiSecret_OverrideForStore" asp-input="ApiSecret" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                    <nop-label asp-for="ApiSecret" />
+                </div>
+                <div class="col-md-6">
+                    <nop-editor asp-for="ApiSecret" asp-required="true" />
+                    <span asp-validation-for="ApiSecret"></span>
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-md-6 offset-md-3">
+                    <input type="submit" name="save" class="btn btn-primary" value="@T("Admin.Common.Save")" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.ValidApiCredentials)
+    {
+        <div class="card card-default">
+            <h5 class="card-header">@Html.Raw(T("Plugins.Payments.Xumm.Section.XrplSettings").Text)</h5>
+            <div class="card-body">
+                @Html.Raw(T("Plugins.Payments.Xumm.Section.XrplSettings.Instructions").Text)
+                <div class="form-group row" id="xrpladdress">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="XrplAddress_OverrideForStore" asp-input="XrplAddress" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="XrplAddress" />
+                    </div>
+                    <div class="col-md-6">
+                        <nop-editor asp-for="XrplAddress" asp-required="true" />
+                        <small class="w-100">@Html.Raw(string.Format(T("Plugins.Payments.Xumm.Fields.XrplAddress.FallBackNote").Text, Defaults.XRPL.XRP))</small>
+                        <span asp-validation-for="XrplAddress"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="@Url.Action("SetAccountWithXumm", "XummConfiguration")" style="padding-top: 0"><img src="~/Plugins/Payments.Xumm/Content/Images/signin.svg" style="height: 38px; width: 218.5px" alt="@T("Plugins.Payments.Xumm.Fields.XrplAddress.SignInWithXumm").Text" /></a>
+                    </div>
+                </div>
+                <div class="form-group row" id="xrpldestinationtag">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="XrplDestinationTag_OverrideForStore" asp-input="XrplDestinationTag" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="XrplDestinationTag" asp-required="true" />
+                    </div>
+                    <div class="col-md-6">
+                        <nop-editor asp-for="XrplDestinationTag" />
+                        <span asp-validation-for="XrplDestinationTag"></span>
+                    </div>
+                </div>
+                @if (Model.ValidXrplAddress)
+                {
+                    <div class="form-group row" id="xrplcurrency">
+                        <div class="col-md-3">
+                            <nop-override-store-checkbox asp-for="XrplCurrency_OverrideForStore" asp-input="XrplCurrency" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                            <nop-label asp-for="XrplCurrency" asp-required="true" />
+                        </div>
+                        <div class="col-md-6">
+                            <nop-select asp-for="XrplCurrency" asp-items="Model.XrplCurrencies" asp-required="true" />
+                            <span asp-validation-for="XrplCurrency"></span>
+                        </div>
+                        <div class="col-md-3">
+                            @if (Model.TrustSetRequired)
+                            {
+                                <a class="btn btn-warning" href="@Url.Action("SetTrustLine", "XummConfiguration")" style="width: 218.5px">@T("Plugins.Payments.Xumm.Fields.XrplCurrency.SetTrustLine").Text</a>
+                            }
+                        </div>
+                    </div>
+                }
+                <div class="form-group row">
+                    <div class="col-md-6 offset-md-3">
+                        <input type="submit" name="save" class="btn btn-primary" value="@T("Admin.Common.Save")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card card-default">
+            <h5 class="card-header">@Html.Raw(T("Plugins.Payments.Xumm.Section.AdditionalSettings").Text)</h5>
+            <div class="card-body">
+                <div class="form-group row">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="AdditionalFee_OverrideForStore" asp-input="AdditionalFee" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="AdditionalFee" />
+                    </div>
+                    <div class="col-md-6">
+                        <nop-editor asp-for="AdditionalFee" />
+                        <span asp-validation-for="AdditionalFee"></span>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="AdditionalFeePercentage_OverrideForStore" asp-input="AdditionalFeePercentage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="AdditionalFeePercentage" />
+                    </div>
+                    <div class="col-md-6">
+                        <nop-editor asp-for="AdditionalFeePercentage" />
+                        <span asp-validation-for="AdditionalFeePercentage"></span>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-md-6 offset-md-3">
+                        <input type="submit" name="save" class="btn btn-primary" value="@T("Admin.Common.Save")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</form>

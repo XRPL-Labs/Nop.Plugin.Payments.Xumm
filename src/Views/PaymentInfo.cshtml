@@ -1,0 +1,32 @@
+﻿@model PaymentInfoModel
+
+@{
+    Layout = "";
+}
+
+<link rel="stylesheet" href="~/Plugins/Payments.Xumm/Content/xumm.css" />
+
+@if (Model == null)
+{
+    <table witdh="100%" cellpatding="0" cellspacing="0">
+        <tr>
+            <td>
+                <p>@T("Plugins.Payments.Xumm.PaymentInfo.IsNotConfigured")</p>
+            </td>
+        </tr>
+    </table>
+}
+else
+{
+    <h1>@T("Plugins.Payments.Xumm.PaymentInfo.Header")</h1>
+    <h2>@T("Plugins.Payments.Xumm.PaymentInfo.SubHeader")</h2>
+
+    <div class="appstores">
+        <a class="appstorebutton ios" href="@Model.AppStoreUrl" target="_blank">
+            <img src="~/Plugins/Payments.Xumm/Content/Images/AppleStore.png">
+        </a>
+        <a class="appstorebutton android" href="@Model.GooglePlayUrl" target="_blank">
+            <img src="~/Plugins/Payments.Xumm/Content/Images/GooglePlay.png">
+        </a>
+    </div>
+}
