@@ -104,11 +104,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
             if (await HasSuccesTransactionAsync(order, transactionId))
             {
-                order.AuthorizationTransactionId = transactionId;
-                await _orderService.UpdateOrderAsync(order);
-
                 await InsertOrderNoteAsync(order, paymentStatus);
-
                 await _orderProcessingService.MarkOrderAsPaidAsync(order);
             }
         }
@@ -133,7 +129,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             var success = result.StartsWith(Defaults.XRPL.SuccesTransactionResultPrefix);
 
             var message = string.Format(await _localizationService.GetResourceAsync($"Plugins.Payments.Xumm.Payment.{(success ? "Success" : "Failed")}Transaction"), transactionHash, result);
-            await InsertOrderNoteAsync(order, message, displayToCustomer: true);
+            await InsertOrderNoteAsync(order, message);
 
             return success;
         }
