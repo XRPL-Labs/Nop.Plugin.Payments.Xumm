@@ -20,27 +20,27 @@ You will be able to see “Xumm” on the list, click Configure.
 
 ## API Settings
 
-### API Credentials {#API-Credentials}
+### API Credentials
 First you need to configure the API Key and API Secret found in the Xumm Application credentials section at the Developer Dashboard. 
 The application will restart to apply the API Credentials since these are set at startup and will be validated after the page has automatically refreshed.
 
 Other settings will be visible if valid credentials are configured.
 
-### Webhook URL {#Webhook-URL}
+### Webhook URL
 The configured Webhook URL in the Xumm Developer Console will be matched with the necessary Webhook URL of the shop.
 Xumm Pay will be hidden for consumers if the Webhook URL doesn't match the stated Webhook URL.
 
 ## XRPL Settings
 
-### XRPL Address {#XRPL-Address}
+### XRPL Address
 Using the Sign in with Xumm fuctionality to set the XRPL Address is recommended to prevent a wrongly configured XRPL Address.
 
-The [XRPL Currency](#XRPL-Currency) will be set to XRP if there was no XRPL Address previously set or no trust line of the configured [XRPL Currency](#XRPL-Currency) was set.
+The [XRPL Currency](#xrpl-currency) will be set to XRP if there was no XRPL Address previously set or no trust line of the configured [XRPL Currency](#xrpl-currency) was set.
 
-### XRPL Currency {#XRPL-Currency}
-The XRPL Currency can be configured if the [XRPL Address](#XRPL-Address) is valid and the list is populated with Xumm's Curated Assets, XRPL Address Trust Lines and XRP.
+### XRPL Currency
+The XRPL Currency can be configured if the [XRPL Address](#xrpl-address) is valid and the list is populated with Xumm's Curated Assets, XRPL Address Trust Lines and XRP.
 
-You will be redirected the the required TrustSet flow if a curated asset has been selected but no trust line has been set on the [XRPL Address](#XRPL-Address).
+You will be redirected the the required TrustSet flow if a curated asset has been selected but no trust line has been set on the [XRPL Address](#xrpl-address).
 The selected XRPL Currency will only be stored if the Trust Line is set during this flow.
 
 #### Shop Currency
@@ -55,6 +55,6 @@ For the ease of use a button will be shown next to the drop down list to redirec
 An optional [destination tag](https://xrpl.org/source-and-destination-tags.html) can be set and is formatted as a 32-bit unsigned integer.
 
 # Step 4: Validate Xumm Pay Configuration
-The [API Key](#API-Credentials), [API Secret](#API-Credentials), [Webhook URL](#Webhook-URL), [XRPL Address](#XRPL-Address) and [XRPL Currency](#XRPL-Currency) has to be configured as required and show green checkmarks in the input fields. 
+The [API Key](#api-credentials), [API Secret](#api-credentials), [Webhook URL](#webhook-url), [XRPL Address](#xrpl-address) and [XRPL Currency](#xrpl-currency) has to be configured as required and show green checkmarks in the input fields. 
 
 Xumm Pay will not be visible for consumers if any of those fields show a red exclamation mark.
