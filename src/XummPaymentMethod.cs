@@ -349,7 +349,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
                         <br />
                         1. You will need a Xumm Developer account. If you don't already have one, you can sign up here: <a href=""https://apps.xumm.dev/"" target=""_blank"">https://apps.xumm.dev/</a><br />
                         2. Sign in to 'Xumm Developer Dashboard'. Go to 'Settings' tab, copy 'API Key', 'API Secret' and paste it into the same fields below.<br />
-                        3. Update the web hook with URL <em>{0}</em> on the 'Application details' section of 'Settings'.<br />
+                        3. Update the webhook with URL <em>{0}</em> on the 'Application details' section of 'Settings'.<br />
                         4. The application will restart to apply the API Credentials and the other necessary settings will be visible on valid credentials.<br />
                     </div>",
             ["Plugins.Payments.Xumm.Section.XrplSettings.Instructions"] = @"
@@ -366,6 +366,9 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.ApiSecret"] = "API Secret",
             ["Plugins.Payments.Xumm.Fields.ApiSecret.Hint"] = "Enter the API Secret for the live environment.",
             ["Plugins.Payments.Xumm.Fields.ApiSecret.Required"] = "API Secret is required",
+            ["Plugins.Payments.Xumm.Fields.WebhookUrl"] = "Webhook URL",
+            ["Plugins.Payments.Xumm.Fields.WebhookUrl.Hint"] = "Update the webhook with URL at the 'Application details' section of 'Settings' in the Xumm Developer Dashboard.",
+            ["Plugins.Payments.Xumm.Fields.WebhookUrl.NotConfigured"] = "Webhook URL has not been configured in the Xumm Developer Dashboard.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress"] = "XRPL Address",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Hint"] = "Accounts in the XRP Ledger are identified by an address in the XRP Ledger's base58 format, such as rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.SignInWithXumm"] = "Sign In with Xumm",

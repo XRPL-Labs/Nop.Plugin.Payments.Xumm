@@ -53,7 +53,7 @@ public class XummConfigurationController : BasePaymentController
     #endregion
 
     #region Methods
-  
+
     public async Task<IActionResult> Configure()
     {
         if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePaymentMethods))
@@ -65,6 +65,7 @@ public class XummConfigurationController : BasePaymentController
         var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
         var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(storeScope);
 
+        var pong = await _xummService.GetPongAsync();
         var model = new ConfigurationModel
         {
             ActiveStoreScopeConfiguration = storeScope,
@@ -72,11 +73,13 @@ public class XummConfigurationController : BasePaymentController
             AdditionalFeePercentage = settings.AdditionalFeePercentage,
             ApiKey = settings.ApiKey,
             ApiSecret = settings.ApiSecret,
+            WebhookUrl = _xummService.WebhookUrl,
             XrplAddress = settings.XrplAddress,
             XrplDestinationTag = settings.XrplDestinationTag?.ToString(),
             XrplCurrency = IssuerCurrencyExtensions.GetCurrencyIdentifier(settings.XrplIssuer, settings.XrplCurrency),
             ValidXrplAddress = settings.XrplAddress.IsAccountAddress(),
-            ValidApiCredentials = await _xummService.ValidateApiCredentialsAsync()
+            ValidApiCredentials = pong?.Pong ?? false,
+            HasWebhookUrlConfigured = await _xummService.HasWebhookUrlConfiguredAsync(pong)
         };
 
         if (storeScope > 0)
@@ -90,49 +93,58 @@ public class XummConfigurationController : BasePaymentController
             model.XrplCurrency_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplCurrency, storeScope);
         }
 
-        if (model.ValidApiCredentials && model.ValidXrplAddress)
+        if (model.ValidApiCredentials)
         {
-            var issuers = await _xummService.GetOrderedCurrenciesAsync(settings.XrplAddress);
-
-            foreach (var issuer in issuers)
+            if (!model.HasWebhookUrlConfigured)
             {
-                var group = new SelectListGroup
-                {
-                    Name = issuer.Name
-                };
+                _notificationService.ErrorNotification(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.WebhookUrl.NotConfigured"));
+            }
 
-                foreach (var currency in issuer.Currencies)
+            if (model.ValidXrplAddress)
+            {
+                var issuers = await _xummService.GetOrderedCurrenciesAsync(settings.XrplAddress);
+
+                foreach (var issuer in issuers)
                 {
-                    var isSelected = currency.Identifier == model.XrplCurrency;
-                    var listItem = new SelectListItem
+                    var group = new SelectListGroup
                     {
-                        Text = currency.CurrencyCodeFormatted,
-                        Value = currency.Identifier,
-                        Selected = isSelected,
-                        Group = group
+                        Name = issuer.Name
                     };
 
-                    if (isSelected)
+                    foreach (var currency in issuer.Currencies)
                     {
-                        if (currency.TrustSetRequired)
+                        var isSelected = currency.Identifier == model.XrplCurrency;
+                        var listItem = new SelectListItem
                         {
-                            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.MissingTrustLine"), currency.CurrencyCodeFormatted));
-                            model.TrustSetRequired = true;
+                            Text = currency.CurrencyCodeFormatted,
+                            Value = currency.Identifier,
+                            Selected = isSelected,
+                            Group = group
+                        };
+
+                        if (isSelected)
+                        {
+                            if (currency.TrustSetRequired)
+                            {
+                                _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.MissingTrustLine"), currency.CurrencyCodeFormatted));
+                                model.TrustSetRequired = true;
+                            }
+
+                            if (!await _xummService.IsPrimaryStoreCurrency(currency.CurrencyCodeFormatted))
+                            {
+                                _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.MissingPrimaryStoreCurrency"), currency.CurrencyCodeFormatted));
+                                model.ShopCurrencyRequired = true;
+                            }
                         }
 
-                        if (!await _xummService.IsPrimaryStoreCurrency(currency.CurrencyCodeFormatted))
-                        {
-                            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.MissingPrimaryStoreCurrency"), currency.CurrencyCodeFormatted));
-                        }
+                        model.XrplCurrencies.Add(listItem);
                     }
-
-                    model.XrplCurrencies.Add(listItem);
                 }
             }
-        }
-        else if (!string.IsNullOrEmpty(model.XrplAddress) && !model.ValidXrplAddress)
-        {
-            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.Invalid"), model.XrplAddress));
+            else if (!string.IsNullOrEmpty(model.XrplAddress) && !model.ValidXrplAddress)
+            {
+                _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.Invalid"), model.XrplAddress));
+            }
         }
 
         return View("~/Plugins/Payments.Xumm/Views/Configure.cshtml", model);
@@ -219,7 +231,7 @@ public class XummConfigurationController : BasePaymentController
             _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplDestinationTag.Invalid"), model.XrplDestinationTag));
         }
 
-        var destinationTag = parsedDestinationTag > 0 ? parsedDestinationTag : settings.XrplDestinationTag;
+        var destinationTag = !string.IsNullOrWhiteSpace(model.XrplDestinationTag) ? (parsedDestinationTag > 0 ? parsedDestinationTag : settings.XrplDestinationTag) : null;
         if (settings.XrplDestinationTag != destinationTag)
         {
             settings.XrplDestinationTag = destinationTag;

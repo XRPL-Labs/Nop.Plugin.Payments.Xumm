@@ -20,6 +20,7 @@ using Nop.Services.Messages;
 using XUMM.NET.SDK.Clients.Interfaces;
 using XUMM.NET.SDK.Enums;
 using XUMM.NET.SDK.Extensions;
+using XUMM.NET.SDK.Models.Misc;
 using XUMM.NET.SDK.Models.Payload;
 using XUMM.NET.SDK.Models.Payload.XRPL;
 using XUMM.NET.SDK.Models.Payload.Xumm;
@@ -78,18 +79,32 @@ public class XummService : IXummService
         };
     }
 
-    public async Task<bool> ValidateApiCredentialsAsync()
+    public async Task<XummPong> GetPongAsync()
     {
         try
         {
-            var ping = await _xummMiscClient.GetPingAsync();
-            return ping.Pong;
+            return await _xummMiscClient.GetPingAsync();
         }
         catch (Exception ex)
         {
             await _logger.ErrorAsync("Failed to retrieve Xumm pong with provided credentials.", ex);
+            return null;
+        }
+    }
+
+    public async Task<bool> HasWebhookUrlConfiguredAsync(XummPong pong = null)
+    {
+        if (pong == null)
+        {
+            pong = await GetPongAsync();
+        }
+
+        if (pong?.Auth.Application.WebhookUrl == null)
+        {
             return false;
         }
+
+        return WebhookUrl.Equals(pong.Auth.Application.WebhookUrl);
     }
 
     public async Task ProcessPayloadAsync(string customIdentifier)
@@ -318,7 +333,7 @@ public class XummService : IXummService
             return true;
         }
 
-        if (!await ValidateApiCredentialsAsync())
+        if (!await HasWebhookUrlConfiguredAsync())
         {
             return true;
         }
@@ -345,4 +360,6 @@ public class XummService : IXummService
             _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.FallBackSet"), Defaults.XRPL.XRP));
         }
     }
+
+    public string WebhookUrl => _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(Defaults.WebHooks.RouteName, null);
 }

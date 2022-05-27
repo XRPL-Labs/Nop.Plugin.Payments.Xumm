@@ -33,6 +33,14 @@ public record ConfigurationModel : BaseNopModel
     public bool ValidApiCredentials { get; set; }
 
     /// <summary>
+    /// Gets or sets a WebhookUrl
+    /// </summary>
+    [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.WebhookUrl")]
+    public string WebhookUrl { get; set; }
+
+    public bool HasWebhookUrlConfigured { get; set; }
+
+    /// <summary>
     /// Gets or sets an XRPL Address
     /// </summary>
     [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.XrplAddress")]
@@ -61,6 +69,8 @@ public record ConfigurationModel : BaseNopModel
     public IList<SelectListItem> XrplCurrencies { get; set; } = new List<SelectListItem>();
 
     public bool TrustSetRequired { get; set; }
+    
+    public bool ShopCurrencyRequired { get; set; }
 
     /// <summary>
     /// Gets or sets an additional fee

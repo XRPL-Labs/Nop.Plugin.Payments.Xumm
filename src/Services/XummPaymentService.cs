@@ -71,7 +71,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 {
                     case XummPayloadStatus.Signed:
                     case XummPayloadStatus.ExpiredSigned:
-                        await TryMarkOrderAsPaidAsync(order, paymentStatus, payload.Response.Txid);
+                        await MarkOrderAsPaidAsync(order, paymentStatus, payload.Response.Txid);
                         break;
                     case XummPayloadStatus.Rejected:
                     case XummPayloadStatus.Cancelled:
@@ -82,6 +82,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     case XummPayloadStatus.NotInteracted:
                         // TODO: What should we do here; Cancel the order?
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(customIdentifier), paymentStatus, $"Not implemented Payload status {paymentStatus} for order with Custom Identifier {customIdentifier}.");
                 }
 
                 return order;
@@ -93,7 +95,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
         }
 
-        private async Task TryMarkOrderAsPaidAsync(Order order, XummPayloadStatus paymentStatus, string transactionId)
+        private async Task MarkOrderAsPaidAsync(Order order, XummPayloadStatus paymentStatus, string transactionId)
         {
             if (!_orderProcessingService.CanMarkOrderAsPaid(order))
             {
