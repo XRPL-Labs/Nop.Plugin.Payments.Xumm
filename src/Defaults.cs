@@ -32,23 +32,6 @@ public static class Defaults
     /// </summary>
     public static string PaymentProcessorRouteName => "Plugin.Payments.Xumm.PaymentProcessor";
 
-    /// <summary>
-    /// Gets the session key to get process payment request
-    /// </summary>
-    public static string PaymentRequestSessionKey => "XummOrderPaymentInfo";
-
-    /// <summary>
-    /// Gets the session key to get the payment account
-    /// </summary>
-    public static string PaymentAccountSessionKey => "XummPaymentAccount";
-
-    public static class Xumm
-    {
-        public static string AppStoreUrl => "https://apps.apple.com/us/app/xumm/id1492302343";
-
-        public static string GooglePlayUrl => "https://play.google.com/store/apps/details?id=com.xrpllabs.xumm";
-    }
-
     public static class XRPL
     {
         /// <summary>
@@ -92,11 +75,6 @@ public static class Defaults
         /// <summary>
         /// Gets the API base URL
         /// </summary>
-        public static Uri PublicCluster => new("wss://s1.ripple.com");
-
-        /// <summary>
-        /// Gets the API base URL
-        /// </summary>
-        public static Uri FullHistoryCluster => new("wss://xrplcluster.com");
+        public static Uri Cluster => new("wss://xrplcluster.com");
     }
 }

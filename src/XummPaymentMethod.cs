@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Nop.Core;
 using Nop.Core.Domain.Cms;
 using Nop.Core.Domain.Orders;
-using Nop.Core.Http.Extensions;
 using Nop.Plugin.Payments.Xumm.Services;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
@@ -299,14 +298,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// </returns>
     public Task<ProcessPaymentRequest> GetPaymentInfoAsync(IFormCollection form)
     {
-        if (form == null)
-        {
-            throw new ArgumentNullException(nameof(form));
-        }
-
-        return Task.FromResult(
-            _actionContextAccessor.ActionContext.HttpContext.Session.Get<ProcessPaymentRequest>(
-                Defaults.PaymentRequestSessionKey));
+        return Task.FromResult(new ProcessPaymentRequest());
     }
 
     /// <summary>
@@ -323,7 +315,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// <returns>View component name</returns>
     public string GetPublicViewComponentName()
     {
-        return Defaults.PAYMENT_INFO_VIEW_COMPONENT_NAME;
+        return null;
     }
 
     /// <summary>
@@ -471,7 +463,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// <summary>
     /// Gets a value indicating whether we should display a payment information page for this plugin
     /// </summary>
-    public bool SkipPaymentInfo => false;
+    public bool SkipPaymentInfo => true;
 
     #endregion
 }
