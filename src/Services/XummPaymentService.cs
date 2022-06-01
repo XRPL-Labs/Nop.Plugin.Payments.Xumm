@@ -1,47 +1,115 @@
 ﻿using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
 using Nop.Plugin.Payments.Xumm.Enums;
 using Nop.Plugin.Payments.Xumm.Extensions;
+using Nop.Services.Common;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using XUMM.NET.SDK.Clients.Interfaces;
 using XUMM.NET.SDK.Enums;
+using XUMM.NET.SDK.Models.Payload;
+using XUMM.NET.SDK.Models.Payload.XRPL;
 
 namespace Nop.Plugin.Payments.Xumm.Services
 {
     public class XummPaymentService : IXummPaymentService
     {
-        private readonly IXummMiscClient _xummMiscClient;
-        private readonly IPaymentPluginManager _paymentPluginManager;
+        private readonly IActionContextAccessor _actionContextAccessor;
+        private readonly IGenericAttributeService _genericAttributeService;
         private readonly ILocalizationService _localizationService;
         private readonly IOrderProcessingService _orderProcessingService;
         private readonly IOrderService _orderService;
+        private readonly IPaymentPluginManager _paymentPluginManager;
+        private readonly IUrlHelperFactory _urlHelperFactory;
+        private readonly IXummMiscClient _xummMiscClient;
+        private readonly IXummPayloadClient _xummPayloadClient;
         private readonly IXummService _xummService;
+        private readonly XummPaymentSettings _xummPaymentSettings;
         private readonly ILogger _logger;
 
         public XummPaymentService(
-            IXummMiscClient xummMiscClient,
-            IPaymentPluginManager paymentPluginManager,
+            IActionContextAccessor actionContextAccessor,
+            IGenericAttributeService genericAttributeService,
             ILocalizationService localizationService,
             IOrderProcessingService orderProcessingService,
             IOrderService orderService,
+            IPaymentPluginManager paymentPluginManager,
+            IUrlHelperFactory urlHelperFactory,
+            IXummPayloadClient xummPayloadClient,
             IXummService xummService,
+            IXummMiscClient xummMiscClient,
+            XummPaymentSettings xummPaymentSettings,
             ILogger logger)
         {
-            _xummMiscClient = xummMiscClient;
-            _paymentPluginManager = paymentPluginManager;
+            _actionContextAccessor = actionContextAccessor;
+            _genericAttributeService = genericAttributeService;
             _localizationService = localizationService;
             _orderProcessingService = orderProcessingService;
             _orderService = orderService;
+            _paymentPluginManager = paymentPluginManager;
+            _urlHelperFactory = urlHelperFactory;
+            _xummPayloadClient = xummPayloadClient;
             _xummService = xummService;
+            _xummMiscClient = xummMiscClient;
+            _xummPaymentSettings = xummPaymentSettings;
             _logger = logger;
         }
 
-        public async Task<Order> ProcessOrderAsync(string customIdentifier)
+        public async Task<string> GetPaymentRedirectUrlAsync(PostProcessPaymentRequest postProcessPaymentRequest)
+        {
+            try
+            {
+                var paymentTransaction = new XrplPaymentTransaction(_xummPaymentSettings.XrplAddress, _xummPaymentSettings.XrplDestinationTag, Defaults.XRPL.Fee);
+                if (_xummPaymentSettings.XrplCurrency == Defaults.XRPL.XRP)
+                {
+                    paymentTransaction.SetAmount(postProcessPaymentRequest.Order.OrderTotal);
+                }
+                else
+                {
+                    paymentTransaction.SetAmount(_xummPaymentSettings.XrplCurrency, postProcessPaymentRequest.Order.OrderTotal, _xummPaymentSettings.XrplIssuer);
+                }
+
+                var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(Defaults.PaymentProcessorRouteName, new { orderGuid = postProcessPaymentRequest.Order.OrderGuid });
+                var attempt = await GetOrderAttemptAsync(postProcessPaymentRequest.Order, true);
+
+                var payload = new XummPostJsonPayload(JsonSerializer.Serialize(paymentTransaction, new JsonSerializerOptions
+                {
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                }))
+                {
+                    Options = new XummPayloadOptions
+                    {
+                        ReturnUrl = new XummPayloadReturnUrl
+                        {
+                            Web = returnUrl
+                        }
+                    },
+                    CustomMeta = new XummPayloadCustomMeta
+                    {
+                        Instruction = await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Payment.Instruction"),
+                        Identifier = postProcessPaymentRequest.Order.GetCustomIdentifier(attempt)
+                    }
+                };
+
+                var result = await _xummPayloadClient.CreateAsync(payload, true);
+                return result.Next.Always;
+            }
+            catch (Exception ex)
+            {
+                await _logger.ErrorAsync($"{Defaults.SystemName}: {ex.Message}", ex);
+                throw;
+            }
+        }
+
+        public async Task<Order> ProcessOrderAsync(Guid orderGuid, bool webhookCall)
         {
             try
             {
@@ -50,40 +118,34 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     throw new NopException($"{Defaults.SystemName} module cannot be loaded");
                 }
 
-                if (string.IsNullOrWhiteSpace(customIdentifier) || !Guid.TryParse(customIdentifier, out var orderId))
-                {
-                    return null;
-                }
-
-                var order = await _orderService.GetOrderByGuidAsync(orderId);
+                var order = await _orderService.GetOrderByGuidAsync(orderGuid);
                 if (order == null)
                 {
-                    return null;
+                    throw new NopException($"{Defaults.SystemName} Order with {orderGuid} can't be found.");
                 }
 
-                var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(orderId.ToString());
+                var attempt = await GetOrderAttemptAsync(order, false);
+                var customIdentifier = order.GetCustomIdentifier(attempt);
+                var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
                 if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
                 {
-                    return null;
+                    throw new NopException($"{Defaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
+                }
+
+                if (webhookCall)
+                {
+                    await InsertOrderNoteAsync(order, paymentStatus, attempt);
                 }
 
                 switch (paymentStatus)
                 {
                     case XummPayloadStatus.Signed:
                     case XummPayloadStatus.ExpiredSigned:
-                        await MarkOrderAsPaidAsync(order, paymentStatus, payload.Response.Txid);
+                        await MarkOrderAsPaidAsync(order, payload.Response.Txid);
                         break;
                     case XummPayloadStatus.Rejected:
-                    case XummPayloadStatus.Cancelled:
-                    case XummPayloadStatus.Expired:
-                    case XummPayloadStatus.NotFound: // TODO: Should we cancel the order if the paylwhaoad is not found? Could be that the wrong API Credentials were provided
-                        await CancelOrderAsync(order, paymentStatus);
+                        await CancelOrderAsync(order);
                         break;
-                    case XummPayloadStatus.NotInteracted:
-                        // TODO: What should we do here; Cancel the order?
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(customIdentifier), paymentStatus, $"Not implemented Payload status {paymentStatus} for order with Custom Identifier {customIdentifier}.");
                 }
 
                 return order;
@@ -95,7 +157,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
         }
 
-        private async Task MarkOrderAsPaidAsync(Order order, XummPayloadStatus paymentStatus, string transactionId)
+        private async Task MarkOrderAsPaidAsync(Order order, string transactionId)
         {
             if (!_orderProcessingService.CanMarkOrderAsPaid(order))
             {
@@ -104,8 +166,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
             if (await HasSuccesTransactionAsync(order, transactionId))
             {
-                await InsertOrderNoteAsync(order, paymentStatus);
-                await _orderProcessingService.MarkOrderAsPaidAsync(order);
+                // Re-validate if the order can still be marked as paid or it has been
+                // marked as paid by either the redirected consumer or webhook call
+                if (_orderProcessingService.CanMarkOrderAsPaid(order))
+                {
+                    await _orderProcessingService.MarkOrderAsPaidAsync(order);
+                }
             }
         }
 
@@ -114,7 +180,6 @@ namespace Nop.Plugin.Payments.Xumm.Services
             var transaction = await _xummMiscClient.GetTransactionAsync(transactionHash);
             if (transaction == null)
             {
-                // TODO: What should we do in this case, could it be that the transaction has not yet been distributed between clusters?
                 await InsertOrderNoteAsync(order, $"Unable to fetch transaction with hash \"{transactionHash}\".");
                 return false;
             }
@@ -134,20 +199,33 @@ namespace Nop.Plugin.Payments.Xumm.Services
             return success;
         }
 
-        private async Task CancelOrderAsync(Order order, XummPayloadStatus paymentStatus)
+        private async Task CancelOrderAsync(Order order)
         {
             if (_orderProcessingService.CanCancelOrder(order))
             {
-                await InsertOrderNoteAsync(order, paymentStatus);
-
-                // TODO: Do we want to notify the user or make this a setting?
-                await _orderProcessingService.CancelOrderAsync(order, false);
+                await _orderProcessingService.CancelOrderAsync(order, true);
             }
         }
 
-        private async Task InsertOrderNoteAsync(Order order, XummPayloadStatus status)
+        private async Task InsertOrderNoteAsync(Order order, XummPayloadStatus status, int attempt)
         {
-            await InsertOrderNoteAsync(order, status.GetDescription());
+            await InsertOrderNoteAsync(order, $"{status.GetDescription()} (#{attempt})");
+        }
+
+        /// <summary>
+        /// Get the current or incremented paymant attempt for the provided <see cref="Order"/>.
+        /// </summary>
+        /// <param name="increment">Attempt will be incremented and saved before returned</param>
+        private async Task<int> GetOrderAttemptAsync(Order order, bool increment)
+        {
+            var attempt = await _genericAttributeService.GetAttributeAsync<int>(order, Defaults.OrderPaymentAttemptAttributeName);
+            if (increment)
+            {
+                attempt++;
+                await _genericAttributeService.SaveAttributeAsync(order, Defaults.OrderPaymentAttemptAttributeName, attempt);
+            }
+
+            return attempt;
         }
 
         private async Task InsertOrderNoteAsync(Order order, string note, bool displayToCustomer = false)

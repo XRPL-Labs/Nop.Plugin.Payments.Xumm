@@ -1,14 +1,14 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Nop.Core.Domain.Orders;
+using Nop.Services.Payments;
 
 namespace Nop.Plugin.Payments.Xumm.Services
 {
     public interface IXummPaymentService
     {
-        /// <summary>
-        /// Process the order based on the identifier.
-        /// </summary>
-        /// <returns>The <see cref="Task" /> containing the <see cref="Order" /></returns>
-        Task<Order> ProcessOrderAsync(string customIdentifier);
+        Task<string> GetPaymentRedirectUrlAsync(PostProcessPaymentRequest postProcessPaymentRequest);
+
+        Task<Order> ProcessOrderAsync(Guid orderGuid, bool webhookCall);
     }
 }

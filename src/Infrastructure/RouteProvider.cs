@@ -33,7 +33,7 @@ public class RouteProvider : IRouteProvider
                 area = AreaNames.Admin
             });
 
-        endpointRouteBuilder.MapControllerRoute(Defaults.PaymentProcessorRouteName, "Plugins/Xumm/ProcessPayment/{customIdentifier}",
+        endpointRouteBuilder.MapControllerRoute(Defaults.PaymentProcessorRouteName, "Plugins/Xumm/ProcessPayment/{orderGuid}",
             new
             {
                 controller = "Xumm",

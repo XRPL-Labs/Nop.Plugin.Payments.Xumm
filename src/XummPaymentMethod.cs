@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
-using Nop.Core;
 using Nop.Core.Domain.Cms;
 using Nop.Core.Domain.Orders;
 using Nop.Plugin.Payments.Xumm.Services;
@@ -16,9 +13,6 @@ using Nop.Services.Localization;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Plugins;
-using XUMM.NET.SDK.Clients.Interfaces;
-using XUMM.NET.SDK.Models.Payload;
-using XUMM.NET.SDK.Models.Payload.XRPL;
 
 namespace Nop.Plugin.Payments.Xumm;
 
@@ -29,7 +23,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
 {
     #region Fields
 
-    private readonly IXummPayloadClient _xummPayloadClient;
+    private readonly IXummPaymentService _xummPaymentService;
     private readonly IXummService _xummService;
     private readonly IActionContextAccessor _actionContextAccessor;
     private readonly IOrderTotalCalculationService _orderTotalCalculationService;
@@ -37,6 +31,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     private readonly ISettingService _settingService;
     private readonly IUrlHelperFactory _urlHelperFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IOrderProcessingService _orderProcessingService;
     private readonly XummPaymentSettings _xummPaymentSettings;
     private readonly WidgetSettings _widgetSettings;
 
@@ -45,7 +40,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     #region Ctor
 
     public XummPaymentMethod(
-        IXummPayloadClient xummPayloadClient,
+        IXummPaymentService xummPaymentService,
         IXummService xummService,
         IActionContextAccessor actionContextAccessor,
         IOrderTotalCalculationService orderTotalCalculationService,
@@ -53,10 +48,11 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         ISettingService settingService,
         IUrlHelperFactory urlHelperFactory,
         IHttpContextAccessor httpContextAccessor,
+        IOrderProcessingService orderProcessingService,
         XummPaymentSettings xummPaymentSettings,
         WidgetSettings widgetSettings)
     {
-        _xummPayloadClient = xummPayloadClient;
+        _xummPaymentService = xummPaymentService;
         _xummService = xummService;
         _actionContextAccessor = actionContextAccessor;
         _orderTotalCalculationService = orderTotalCalculationService;
@@ -64,6 +60,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         _settingService = settingService;
         _urlHelperFactory = urlHelperFactory;
         _httpContextAccessor = httpContextAccessor;
+        _orderProcessingService = orderProcessingService;
         _xummPaymentSettings = xummPaymentSettings;
         _widgetSettings = widgetSettings;
     }
@@ -91,45 +88,8 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// <returns>A task that represents the asynchronous operation</returns>
     public async Task PostProcessPaymentAsync(PostProcessPaymentRequest postProcessPaymentRequest)
     {
-        var paymentTransaction = new XrplPaymentTransaction(_xummPaymentSettings.XrplAddress, _xummPaymentSettings.XrplDestinationTag, Defaults.XRPL.Fee);
-        if (_xummPaymentSettings.XrplCurrency == Defaults.XRPL.XRP)
-        {
-            paymentTransaction.SetAmount(postProcessPaymentRequest.Order.OrderTotal);
-        }
-        else
-        {
-            paymentTransaction.SetAmount(_xummPaymentSettings.XrplCurrency, postProcessPaymentRequest.Order.OrderTotal, _xummPaymentSettings.XrplIssuer);
-        }
-
-        var serializerOptions = new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-
-        var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(Defaults.PaymentProcessorRouteName, new { customIdentifier = postProcessPaymentRequest.Order.OrderGuid });
-        var payload = new XummPostJsonPayload(JsonSerializer.Serialize(paymentTransaction, serializerOptions))
-        {
-            Options = new XummPayloadOptions
-            {
-                ReturnUrl = new XummPayloadReturnUrl
-                {
-                    Web = returnUrl
-                }
-            },
-            CustomMeta = new XummPayloadCustomMeta
-            {
-                Instruction = "Xumm Pay",
-                Identifier = postProcessPaymentRequest.Order.OrderGuid.ToString()
-            }
-        };
-
-        var result = await _xummPayloadClient.CreateAsync(payload, true);
-        if (result == null)
-        {
-            throw new NopException("Failed to get Xumm payload response.");
-        }
-
-        _httpContextAccessor.HttpContext.Response.Redirect(result.Next.Always);
+        var redirectUrl = await _xummPaymentService.GetPaymentRedirectUrlAsync(postProcessPaymentRequest);
+        _httpContextAccessor.HttpContext.Response.Redirect(redirectUrl);
     }
 
     /// <summary>
@@ -275,7 +235,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             throw new ArgumentNullException(nameof(order));
         }
 
-        return Task.FromResult(false);
+        return Task.FromResult(_orderProcessingService.CanMarkOrderAsPaid(order));
     }
 
     /// <summary>
@@ -388,10 +348,9 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.AdditionalFeePercentage.Hint"] = "Determines whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.",
             ["Plugins.Payments.Xumm.Payment.SuccessTransaction"] = "Order payment with transaction hash {0} has been processed.",
             ["Plugins.Payments.Xumm.Payment.FailedTransaction"] = "Order payment with transaction hash {0} has failed with code {1}.",
+            ["Plugins.Payments.Xumm.Payment.Instruction"] = "Pay with Xumm",
             ["Plugins.Payments.Xumm.PaymentMethodDescription"] = "Pay with Xumm",
             ["Plugins.Payments.Xumm.PaymentInfo.IsNotConfigured"] = "Plugin is not configured correctly.",
-            ["Plugins.Payments.Xumm.PaymentInfo.Header"] = "Xumm. Your XRP wallet",
-            ["Plugins.Payments.Xumm.PaymentInfo.SubHeader"] = "A non custodial wallet with superpowers for the XRP Ledger.",
             ["Plugins.Payments.Xumm.Payment.Successful"] = "We have received your payment. Thanks!"
         });
 

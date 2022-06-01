@@ -32,6 +32,11 @@ public static class Defaults
     /// </summary>
     public static string PaymentProcessorRouteName => "Plugin.Payments.Xumm.PaymentProcessor";
 
+    /// <summary>
+    /// Gets the name of a generic attribute to store the attempt of an order payment
+    /// </summary>
+    public static string OrderPaymentAttemptAttributeName => "XummOrderPaymentAttempt";
+
     public static class XRPL
     {
         /// <summary>
@@ -53,7 +58,7 @@ public static class Defaults
         /// The rippled server summarizes transaction results with result codes, which appear in  meta.TransactionResult.
         /// <seealso href="https://xrpl.org/transaction-results.html"/>
         /// </summary>
-        public static string SuccesTransactionResultPrefix = "tes";
+        public static string SuccesTransactionResultPrefix => "tes";
     }
 
     /// <summary>
@@ -65,6 +70,13 @@ public static class Defaults
         /// Gets the route name
         /// </summary>
         public static string RouteName => "Plugin.Payments.Xumm.WebHook.Handle";
+
+        /// <summary>
+        /// Allowing any Webhook URL should be enabled for testing purposes only.
+        /// Xumm payment method will be enabled even if the shops Webhook URL hasn't been configured in the Xumm Developer Console.
+        /// Enabling this feature could cause orders not being marked as paid/cancelled.
+        /// </summary>
+        public static bool AllowUnconfiguredWebhook => false;
     }
 
     /// <summary>

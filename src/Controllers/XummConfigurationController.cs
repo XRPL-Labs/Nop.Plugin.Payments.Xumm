@@ -79,7 +79,7 @@ public class XummConfigurationController : BasePaymentController
             XrplCurrency = IssuerCurrencyExtensions.GetCurrencyIdentifier(settings.XrplIssuer, settings.XrplCurrency),
             ValidXrplAddress = settings.XrplAddress.IsAccountAddress(),
             ValidApiCredentials = pong?.Pong ?? false,
-            HasWebhookUrlConfigured = await _xummService.HasWebhookUrlConfiguredAsync(pong)
+            HasWebhookUrlConfigured = _xummService.HasWebhookUrlConfigured(pong)
         };
 
         if (storeScope > 0)

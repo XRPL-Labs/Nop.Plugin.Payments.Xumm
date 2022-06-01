@@ -9,7 +9,7 @@ namespace Nop.Plugin.Payments.Xumm.Services;
 
 public interface IXummService
 {
-    Task<bool> HasWebhookUrlConfiguredAsync(XummPong pong = null);
+    bool HasWebhookUrlConfigured(XummPong pong);
     Task<XummPong> GetPongAsync();
     Task ProcessPayloadAsync(string xummId);
     Task<string> GetSignInWithXummUrlAsync();

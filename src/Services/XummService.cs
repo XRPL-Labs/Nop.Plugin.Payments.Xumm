@@ -30,12 +30,12 @@ namespace Nop.Plugin.Payments.Xumm.Services;
 public class XummService : IXummService
 {
     private readonly IActionContextAccessor _actionContextAccessor;
+    private readonly ICurrencyService _currencyService;
     private readonly ILocalizationService _localizationService;
     private readonly INotificationService _notificationService;
     private readonly ISettingService _settingService;
     private readonly IStoreContext _storeContext;
     private readonly IUrlHelperFactory _urlHelperFactory;
-    private readonly ICurrencyService _currencyService;
     private readonly IXrplWebSocket _xrplWebSocket;
     private readonly IXummMiscClient _xummMiscClient;
     private readonly IXummPayloadClient _xummPayloadClient;
@@ -45,30 +45,30 @@ public class XummService : IXummService
     private readonly ILogger _logger;
 
     public XummService(
-        IXummMiscClient xummMiscClient,
-        IXummPayloadClient xummPayloadClient,
         IActionContextAccessor actionContextAccessor,
-        ISettingService settingService,
-        IStoreContext storeContext,
+        ICurrencyService currencyService,
         ILocalizationService localizationService,
         INotificationService notificationService,
+        ISettingService settingService,
+        IStoreContext storeContext,
         IUrlHelperFactory urlHelperFactory,
         IXrplWebSocket xrplWebSocket,
-        ICurrencyService currencyService,
+        IXummPayloadClient xummPayloadClient,
+        IXummMiscClient xummMiscClient,
         CurrencySettings currencySettings,
         XummPaymentSettings xummPaymentSettings,
         ILogger logger)
     {
-        _xummMiscClient = xummMiscClient;
-        _xummPayloadClient = xummPayloadClient;
         _actionContextAccessor = actionContextAccessor;
-        _settingService = settingService;
-        _storeContext = storeContext;
+        _currencyService = currencyService;
         _localizationService = localizationService;
         _notificationService = notificationService;
+        _settingService = settingService;
+        _storeContext = storeContext;
         _urlHelperFactory = urlHelperFactory;
         _xrplWebSocket = xrplWebSocket;
-        _currencyService = currencyService;
+        _xummPayloadClient = xummPayloadClient;
+        _xummMiscClient = xummMiscClient;
         _currencySettings = currencySettings;
         _xummPaymentSettings = xummPaymentSettings;
         _logger = logger;
@@ -92,13 +92,8 @@ public class XummService : IXummService
         }
     }
 
-    public async Task<bool> HasWebhookUrlConfiguredAsync(XummPong pong = null)
+    public bool HasWebhookUrlConfigured(XummPong pong)
     {
-        if (pong == null)
-        {
-            pong = await GetPongAsync();
-        }
-
         if (pong?.Auth.Application.WebhookUrl == null)
         {
             return false;
@@ -333,7 +328,13 @@ public class XummService : IXummService
             return true;
         }
 
-        if (!await HasWebhookUrlConfiguredAsync())
+        var pong = await GetPongAsync();
+        if (!pong?.Pong ?? false)
+        {
+            return true;
+        }
+
+        if (!Defaults.WebHooks.AllowUnconfiguredWebhook && !HasWebhookUrlConfigured(pong))
         {
             return true;
         }
