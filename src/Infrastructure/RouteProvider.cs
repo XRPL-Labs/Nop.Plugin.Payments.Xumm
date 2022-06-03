@@ -17,7 +17,7 @@ public class RouteProvider : IRouteProvider
     /// <param name="endpointRouteBuilder">Route builder</param>
     public void RegisterRoutes(IEndpointRouteBuilder endpointRouteBuilder)
     {
-        endpointRouteBuilder.MapControllerRoute(Defaults.ConfigurationRouteName, "Plugins/Xumm/Configure",
+        endpointRouteBuilder.MapControllerRoute(XummDefaults.ConfigurationRouteName, "Plugins/Xumm/Configure",
             new
             {
                 controller = "XummConfiguration",
@@ -25,7 +25,7 @@ public class RouteProvider : IRouteProvider
                 area = AreaNames.Admin
             });
 
-        endpointRouteBuilder.MapControllerRoute(Defaults.ProcessPayloadRouteName, "Plugins/Xumm/ProcessPayload/{customIdentifier}",
+        endpointRouteBuilder.MapControllerRoute(XummDefaults.ProcessPayloadRouteName, "Plugins/Xumm/ProcessPayload/{customIdentifier}",
             new
             {
                 controller = "XummConfiguration",
@@ -33,14 +33,14 @@ public class RouteProvider : IRouteProvider
                 area = AreaNames.Admin
             });
 
-        endpointRouteBuilder.MapControllerRoute(Defaults.PaymentProcessorRouteName, "Plugins/Xumm/ProcessPayment/{orderGuid}",
+        endpointRouteBuilder.MapControllerRoute(XummDefaults.PaymentProcessorRouteName, "Plugins/Xumm/ProcessPayment/{orderGuid}",
             new
             {
                 controller = "Xumm",
                 action = "ProcessPayment"
             });
 
-        endpointRouteBuilder.MapXummControllerRoute(Defaults.WebHooks.RouteName, "Plugins/Xumm/Webhook");
+        endpointRouteBuilder.MapXummControllerRoute(XummDefaults.WebHooks.RouteName, "Plugins/Xumm/Webhook");
     }
 
     /// <summary>

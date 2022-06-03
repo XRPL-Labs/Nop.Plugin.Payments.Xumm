@@ -7,7 +7,7 @@ internal static class IssuerCurrencyExtensions
 {
     internal static string GetFormattedCurrency(this string currency)
     {
-        if (currency == Defaults.XRPL.XRP)
+        if (currency == XummDefaults.XRPL.XRP)
         {
             return currency;
         }

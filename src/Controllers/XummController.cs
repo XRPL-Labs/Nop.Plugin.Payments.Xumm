@@ -37,7 +37,7 @@ public class XummController : BasePaymentController
         }
         catch (Exception ex)
         {
-            await _logger.ErrorAsync($"{Defaults.SystemName}: {ex.Message}", ex);
+            await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
             return RedirectToAction("Index", "Home", new { area = string.Empty });
         }
     }

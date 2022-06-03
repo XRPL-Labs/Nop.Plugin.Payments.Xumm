@@ -25,6 +25,7 @@ public class NopStartup : INopStartup
         services.AddScoped<IXrplWebSocket, XrplWebSocket>();
         services.AddScoped<IXummService, XummService>();
         services.AddScoped<IXummPaymentService, XummPaymentService>();
+        services.AddScoped<IXummMailService, XummMailService>();
 
         var paymentSettings = services.BuildServiceProvider().GetRequiredService<XummPaymentSettings>();
 

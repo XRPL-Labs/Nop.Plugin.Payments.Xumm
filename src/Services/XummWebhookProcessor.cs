@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Nop.Plugin.Payments.Xumm.Enums;
 using Nop.Plugin.Payments.Xumm.Extensions;
 using Nop.Services.Logging;
 using XUMM.NET.SDK.Webhooks;
@@ -29,15 +30,18 @@ public class XummWebhookProcessor : IXummWebhookProcessor
                 return;
             }
 
-            var (orderGuid, _) = OrderExtensions.ParseCustomIdentifier(xummWebhookBody.CustomMeta.Identifier);
+            var (orderGuid, payloadType, _) = OrderExtensions.ParseCustomIdentifier(xummWebhookBody.CustomMeta.Identifier);
             if (orderGuid != default)
             {
-                await _xummPaymentService.ProcessOrderAsync(orderGuid, true);
+                if (payloadType == XummPayloadType.Payment)
+                {
+                    await _xummPaymentService.ProcessOrderAsync(orderGuid, true);
+                }
             }
         }
         catch (Exception ex)
         {
-            await _logger.ErrorAsync($"{Defaults.SystemName}: {ex.Message}", ex);
+            await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
         }
     }
 }

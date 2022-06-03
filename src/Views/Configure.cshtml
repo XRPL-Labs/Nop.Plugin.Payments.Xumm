@@ -64,7 +64,7 @@
                     </div>
                     <div class="col-md-6">
                         <nop-editor asp-for="XrplAddress" asp-required="true" html-attributes="@(new { @class = Model.ValidXrplAddress ? "form-control is-valid" : "form-control is-invalid" })" asp-render-form-control-class="false" />
-                        <small class="w-100">@Html.Raw(string.Format(T("Plugins.Payments.Xumm.Fields.XrplAddress.FallBackNote").Text, Defaults.XRPL.XRP))</small>
+                        <small class="w-100">@Html.Raw(string.Format(T("Plugins.Payments.Xumm.Fields.XrplAddress.FallBackNote").Text, XummDefaults.XRPL.XRP))</small>
                         <span asp-validation-for="XrplAddress"></span>
                     </div>
                     <div class="col-md-3">

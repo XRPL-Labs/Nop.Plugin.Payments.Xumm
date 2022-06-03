@@ -68,7 +68,7 @@ public class XrplWebSocket : IXrplWebSocket
                 Marker = marker
             };
 
-            return await SendMessageAsync<AccountLines>(Defaults.WebSocket.Cluster, request, CancellationToken.None);
+            return await SendMessageAsync<AccountLines>(XummDefaults.WebSocket.Cluster, request, CancellationToken.None);
         }
         catch (Exception ex)
         {

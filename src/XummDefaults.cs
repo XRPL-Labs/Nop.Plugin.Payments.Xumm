@@ -3,9 +3,9 @@
 namespace Nop.Plugin.Payments.Xumm;
 
 /// <summary>
-/// Represents plugin defaults
+/// Represents Xumm plugin defaults
 /// </summary>
-public static class Defaults
+public static class XummDefaults
 {
     /// <summary>
     /// Gets a name of the view component to display payment info in public store
@@ -17,25 +17,32 @@ public static class Defaults
     /// </summary>
     public static string SystemName => "Payments.Xumm";
 
+    public static string FullSystemName => "Plugin.Payments.Xumm";
+
     /// <summary>
     /// Gets the plugin configuration route name
     /// </summary>
-    public static string ConfigurationRouteName => "Plugin.Payments.Xumm.Configure";
+    public static string ConfigurationRouteName => $"{FullSystemName}.Configure";
 
     /// <summary>
     /// Gets the plugin route name to process payloads
     /// </summary>
-    public static string ProcessPayloadRouteName => "Plugin.Payments.Xumm.ProcessPayload";
+    public static string ProcessPayloadRouteName => $"{FullSystemName}.ProcessPayload";
 
     /// <summary>
     /// Gets the plugin payment processor handler route name
     /// </summary>
-    public static string PaymentProcessorRouteName => "Plugin.Payments.Xumm.PaymentProcessor";
+    public static string PaymentProcessorRouteName => $"{FullSystemName}.PaymentProcessor";
 
     /// <summary>
     /// Gets the name of a generic attribute to store the attempt of an order payment
     /// </summary>
     public static string OrderPaymentAttemptAttributeName => "XummOrderPaymentAttempt";
+
+    /// <summary>
+    /// Gets the name of a generic attribute to store the refund identifier
+    /// </summary>
+    public static string RefundIdAttributeName => "XummRefundId";
 
     public static class XRPL
     {
@@ -61,6 +68,11 @@ public static class Defaults
         public static string SuccesTransactionResultPrefix => "tes";
     }
 
+    public static class Mail
+    {
+        public static string RefundEmailTemplateSystemName => $"{SystemName}.RefundMessage";
+    }
+
     /// <summary>
     /// Represents a web hooks defaults
     /// </summary>
@@ -69,7 +81,7 @@ public static class Defaults
         /// <summary>
         /// Gets the route name
         /// </summary>
-        public static string RouteName => "Plugin.Payments.Xumm.WebHook.Handle";
+        public static string RouteName => $"{FullSystemName}.WebHook.Handle";
 
         /// <summary>
         /// Allowing any Webhook URL should be enabled for testing purposes only.

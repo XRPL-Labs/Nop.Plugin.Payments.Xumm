@@ -167,7 +167,7 @@ public class XummService : IXummService
 
     public async Task<string> GetSetTrustLineUrlAsync(string account, string issuer, string currency)
     {
-        var trustSet = new XrplTrustSetTransaction(account, currency, issuer, Defaults.XRPL.TrustSetValue, Defaults.XRPL.Fee)
+        var trustSet = new XrplTrustSetTransaction(account, currency, issuer, XummDefaults.XRPL.TrustSetValue, XummDefaults.XRPL.Fee)
         {
             Flags = XrplTrustSetFlags.tfSetNoRipple
         };
@@ -179,7 +179,7 @@ public class XummService : IXummService
     public async Task<bool> IsTrustLineRequiredAsync(string xrpAddress, string issuer, string currency)
     {
         var accountTrustLines = await _xrplWebSocket.GetAccountTrustLines(xrpAddress);
-        return !currency.Equals(Defaults.XRPL.XRP) && !accountTrustLines.Any(x => x.Account.Equals(issuer) && x.Currency.Equals(currency));
+        return !currency.Equals(XummDefaults.XRPL.XRP) && !accountTrustLines.Any(x => x.Account.Equals(issuer) && x.Currency.Equals(currency));
     }
 
     public async Task<List<IssuerModel>> GetOrderedCurrenciesAsync(string xrpAddress)
@@ -237,11 +237,11 @@ public class XummService : IXummService
 
         result.ForEach(x => x.Currencies = x.Currencies.OrderBy(c => c.CurrencyCodeFormatted).ToList());
 
-        var xrpIssuer = new IssuerModel(Defaults.XRPL.XRP);
+        var xrpIssuer = new IssuerModel(XummDefaults.XRPL.XRP);
         xrpIssuer.Currencies.Add(new CurrencyModel(xrpIssuer)
         {
-            CurrencyCode = Defaults.XRPL.XRP,
-            CurrencyCodeFormatted = Defaults.XRPL.XRP
+            CurrencyCode = XummDefaults.XRPL.XRP,
+            CurrencyCodeFormatted = XummDefaults.XRPL.XRP
         });
 
         result.Insert(0, xrpIssuer);
@@ -291,7 +291,7 @@ public class XummService : IXummService
     private async Task<string> GetPayloadRedirectUrlAsync(XummPostJsonPayload payload, string instruction)
     {
         var customIdentifier = Guid.NewGuid().ToString();
-        var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(Defaults.ProcessPayloadRouteName, new { customIdentifier = customIdentifier });
+        var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.ProcessPayloadRouteName, new { customIdentifier = customIdentifier });
 
         payload.Options = new XummPayloadOptions
         {
@@ -334,7 +334,7 @@ public class XummService : IXummService
             return true;
         }
 
-        if (!Defaults.WebHooks.AllowUnconfiguredWebhook && !HasWebhookUrlConfigured(pong))
+        if (!XummDefaults.WebHooks.AllowUnconfiguredWebhook && !HasWebhookUrlConfigured(pong))
         {
             return true;
         }
@@ -351,16 +351,16 @@ public class XummService : IXummService
     {
         if (settings.XrplIssuer == null || settings.XrplCurrency == null || await IsTrustLineRequiredAsync(settings.XrplAddress, settings.XrplIssuer, settings.XrplCurrency))
         {
-            settings.XrplIssuer = Defaults.XRPL.XRP;
-            settings.XrplCurrency = Defaults.XRPL.XRP;
+            settings.XrplIssuer = XummDefaults.XRPL.XRP;
+            settings.XrplCurrency = XummDefaults.XRPL.XRP;
 
             var currencyOverrideForStore = storeScope > 0 && await _settingService.SettingExistsAsync(settings, x => x.XrplCurrency, storeScope);
             await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplIssuer, currencyOverrideForStore, storeScope, false);
             await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplCurrency, currencyOverrideForStore, storeScope, clearCache);
 
-            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.FallBackSet"), Defaults.XRPL.XRP));
+            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.FallBackSet"), XummDefaults.XRPL.XRP));
         }
     }
 
-    public string WebhookUrl => _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(Defaults.WebHooks.RouteName, null);
+    public string WebhookUrl => _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.WebHooks.RouteName, null);
 }

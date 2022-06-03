@@ -1,15 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Nop.Core;
 using Nop.Core.Domain.Cms;
+using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
 using Nop.Plugin.Payments.Xumm.Services;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
+using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Plugins;
@@ -32,6 +36,11 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     private readonly IUrlHelperFactory _urlHelperFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IOrderProcessingService _orderProcessingService;
+    private readonly IEmailAccountService _emailAccountService;
+    private readonly IMessageTemplateService _messageTemplateService;
+    private readonly IXummMailService _xummMailService;
+    private readonly IWorkContext _workContext;
+    private readonly EmailAccountSettings _emailAccountSettings;
     private readonly XummPaymentSettings _xummPaymentSettings;
     private readonly WidgetSettings _widgetSettings;
 
@@ -49,6 +58,11 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         IUrlHelperFactory urlHelperFactory,
         IHttpContextAccessor httpContextAccessor,
         IOrderProcessingService orderProcessingService,
+        IEmailAccountService emailAccountService,
+        IMessageTemplateService messageTemplateService,
+        IXummMailService xummMailService,
+        IWorkContext workContext,
+        EmailAccountSettings emailAccountSettings,
         XummPaymentSettings xummPaymentSettings,
         WidgetSettings widgetSettings)
     {
@@ -61,6 +75,11 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         _urlHelperFactory = urlHelperFactory;
         _httpContextAccessor = httpContextAccessor;
         _orderProcessingService = orderProcessingService;
+        _emailAccountService = emailAccountService;
+        _messageTemplateService = messageTemplateService;
+        _xummMailService = xummMailService;
+        _workContext = workContext;
+        _emailAccountSettings = emailAccountSettings;
         _xummPaymentSettings = xummPaymentSettings;
         _widgetSettings = widgetSettings;
     }
@@ -148,20 +167,23 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// </summary>
     /// <param name="refundPaymentRequest">Request</param>
     /// <returns>The asynchronous task whose result contains the Refund payment result</returns>
-    public Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
+    public async Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
     {
         if (refundPaymentRequest == null)
         {
             throw new ArgumentNullException(nameof(refundPaymentRequest));
         }
 
-        return Task.FromResult(new RefundPaymentResult
+        var languageId = (await _workContext.GetWorkingLanguageAsync()).Id;
+        var messageQueueId = await _xummMailService.SendRefundMailToStoreOwnerAsync(refundPaymentRequest, languageId);
+
+        return new RefundPaymentResult
         {
             Errors = new[]
             {
-                "Refund method not (yet) supported"
+                $"Mail has been sent with refund details. Queued email identifiers: {string.Join(", ", messageQueueId)}."
             }
-        });
+        };
     }
 
     /// <summary>
@@ -266,7 +288,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// </summary>
     public override string GetConfigurationPageUrl()
     {
-        return _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).RouteUrl(Defaults.ConfigurationRouteName);
+        return _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).RouteUrl(XummDefaults.ConfigurationRouteName);
     }
 
     /// <summary>
@@ -284,9 +306,9 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// <returns>A task that represents the asynchronous operation</returns>
     public override async Task InstallAsync()
     {
-        if (!_widgetSettings.ActiveWidgetSystemNames.Contains(Defaults.SystemName))
+        if (!_widgetSettings.ActiveWidgetSystemNames.Contains(XummDefaults.SystemName))
         {
-            _widgetSettings.ActiveWidgetSystemNames.Add(Defaults.SystemName);
+            _widgetSettings.ActiveWidgetSystemNames.Add(XummDefaults.SystemName);
             await _settingService.SaveSettingAsync(_widgetSettings);
         }
 
@@ -354,6 +376,24 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Payment.Successful"] = "We have received your payment. Thanks!"
         });
 
+        var emailAccount = await _emailAccountService.GetEmailAccountByIdAsync(_emailAccountSettings.DefaultEmailAccountId) ??
+                            (await _emailAccountService.GetAllEmailAccountsAsync()).FirstOrDefault();
+
+        if (emailAccount == null)
+        {
+            throw new Exception("There is no email account to create a MessageTemplate");
+        }
+
+        var template = new MessageTemplate
+        {
+            Name = XummDefaults.Mail.RefundEmailTemplateSystemName,
+            Subject = "%Store.Name%. Refund Order #%Order.OrderNumber%",
+            Body = $"<p><a href=\"%Store.URL%\">%Store.Name%</a><br /><br />Order #%Order.OrderNumber% refund can be signed <a href=\"%Order.RefundUrl%\" target=\"_blank\">here</a>.<br /><br />Refund amount: %Order.RefundAmount%<br /><br />Date Ordered: %Order.CreatedOn%</p>{Environment.NewLine}",
+            IsActive = true,
+            EmailAccountId = emailAccount.Id
+        };
+        await _messageTemplateService.InsertMessageTemplateAsync(template);
+
         await base.InstallAsync();
     }
 
@@ -363,13 +403,19 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// <returns>A task that represents the asynchronous operation</returns>
     public override async Task UninstallAsync()
     {
-        if (_widgetSettings.ActiveWidgetSystemNames.Contains(Defaults.SystemName))
+        if (_widgetSettings.ActiveWidgetSystemNames.Contains(XummDefaults.SystemName))
         {
-            _widgetSettings.ActiveWidgetSystemNames.Remove(Defaults.SystemName);
+            _widgetSettings.ActiveWidgetSystemNames.Remove(XummDefaults.SystemName);
             await _settingService.SaveSettingAsync(_widgetSettings);
         }
 
         await _settingService.DeleteSettingAsync<XummPaymentSettings>();
+
+        var template = (await _messageTemplateService.GetMessageTemplatesByNameAsync(XummDefaults.Mail.RefundEmailTemplateSystemName)).FirstOrDefault();
+        if (template != null)
+        {
+            await _messageTemplateService.DeleteMessageTemplateAsync(template);
+        }
 
         await _localizationService.DeleteLocaleResourcesAsync("Plugins.Payments.Xumm");
 
@@ -397,12 +443,12 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// <summary>
     /// Gets a value indicating whether partial refund is supported
     /// </summary>
-    public bool SupportPartiallyRefund => false;
+    public bool SupportPartiallyRefund => true;
 
     /// <summary>
     /// Gets a value indicating whether refund is supported
     /// </summary>
-    public bool SupportRefund => false;
+    public bool SupportRefund => true;
 
     /// <summary>
     /// Gets a value indicating whether void is supported

@@ -67,8 +67,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
         {
             try
             {
-                var paymentTransaction = new XrplPaymentTransaction(_xummPaymentSettings.XrplAddress, _xummPaymentSettings.XrplDestinationTag, Defaults.XRPL.Fee);
-                if (_xummPaymentSettings.XrplCurrency == Defaults.XRPL.XRP)
+                var paymentTransaction = new XrplPaymentTransaction(_xummPaymentSettings.XrplAddress, _xummPaymentSettings.XrplDestinationTag, XummDefaults.XRPL.Fee);
+                if (_xummPaymentSettings.XrplCurrency == XummDefaults.XRPL.XRP)
                 {
                     paymentTransaction.SetAmount(postProcessPaymentRequest.Order.OrderTotal);
                 }
@@ -77,7 +77,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     paymentTransaction.SetAmount(_xummPaymentSettings.XrplCurrency, postProcessPaymentRequest.Order.OrderTotal, _xummPaymentSettings.XrplIssuer);
                 }
 
-                var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(Defaults.PaymentProcessorRouteName, new { orderGuid = postProcessPaymentRequest.Order.OrderGuid });
+                var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.PaymentProcessorRouteName, new { orderGuid = postProcessPaymentRequest.Order.OrderGuid });
                 var attempt = await GetOrderAttemptAsync(postProcessPaymentRequest.Order, true);
 
                 var payload = new XummPostJsonPayload(JsonSerializer.Serialize(paymentTransaction, new JsonSerializerOptions
@@ -95,7 +95,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     CustomMeta = new XummPayloadCustomMeta
                     {
                         Instruction = await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Payment.Instruction"),
-                        Identifier = postProcessPaymentRequest.Order.GetCustomIdentifier(attempt)
+                        Identifier = postProcessPaymentRequest.Order.GetCustomIdentifier(XummPayloadType.Payment, attempt)
                     }
                 };
 
@@ -104,7 +104,20 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
             catch (Exception ex)
             {
-                await _logger.ErrorAsync($"{Defaults.SystemName}: {ex.Message}", ex);
+                await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
+                throw;
+            }
+        }
+
+        public async Task<string> GetRefundRedirectUrlAsync(RefundPaymentRequest refundPaymentRequest)
+        {
+            try
+            {
+                return null;
+            }
+            catch (Exception ex)
+            {
+                await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
                 throw;
             }
         }
@@ -113,23 +126,23 @@ namespace Nop.Plugin.Payments.Xumm.Services
         {
             try
             {
-                if (await _paymentPluginManager.LoadPluginBySystemNameAsync(Defaults.SystemName) is not XummPaymentMethod paymentMethod || !_paymentPluginManager.IsPluginActive(paymentMethod))
+                if (await _paymentPluginManager.LoadPluginBySystemNameAsync(XummDefaults.SystemName) is not XummPaymentMethod paymentMethod || !_paymentPluginManager.IsPluginActive(paymentMethod))
                 {
-                    throw new NopException($"{Defaults.SystemName} module cannot be loaded");
+                    throw new NopException($"{XummDefaults.SystemName} module cannot be loaded");
                 }
 
                 var order = await _orderService.GetOrderByGuidAsync(orderGuid);
                 if (order == null)
                 {
-                    throw new NopException($"{Defaults.SystemName} Order with {orderGuid} can't be found.");
+                    throw new NopException($"{XummDefaults.SystemName} Order with {orderGuid} can't be found.");
                 }
 
                 var attempt = await GetOrderAttemptAsync(order, false);
-                var customIdentifier = order.GetCustomIdentifier(attempt);
+                var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Payment, attempt);
                 var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
                 if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
                 {
-                    throw new NopException($"{Defaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
+                    throw new NopException($"{XummDefaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
                 }
 
                 if (webhookCall)
@@ -152,7 +165,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
             catch (Exception ex)
             {
-                await _logger.ErrorAsync($"{Defaults.SystemName}: {ex.Message}", ex);
+                await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
                 throw;
             }
         }
@@ -191,7 +204,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
 
             var result = transactionResult.GetString();
-            var success = result.StartsWith(Defaults.XRPL.SuccesTransactionResultPrefix);
+            var success = result.StartsWith(XummDefaults.XRPL.SuccesTransactionResultPrefix);
 
             var message = string.Format(await _localizationService.GetResourceAsync($"Plugins.Payments.Xumm.Payment.{(success ? "Success" : "Failed")}Transaction"), transactionHash, result);
             await InsertOrderNoteAsync(order, message);
@@ -218,11 +231,11 @@ namespace Nop.Plugin.Payments.Xumm.Services
         /// <param name="increment">Attempt will be incremented and saved before returned</param>
         private async Task<int> GetOrderAttemptAsync(Order order, bool increment)
         {
-            var attempt = await _genericAttributeService.GetAttributeAsync<int>(order, Defaults.OrderPaymentAttemptAttributeName);
+            var attempt = await _genericAttributeService.GetAttributeAsync<int>(order, XummDefaults.OrderPaymentAttemptAttributeName);
             if (increment)
             {
                 attempt++;
-                await _genericAttributeService.SaveAttributeAsync(order, Defaults.OrderPaymentAttemptAttributeName, attempt);
+                await _genericAttributeService.SaveAttributeAsync(order, XummDefaults.OrderPaymentAttemptAttributeName, attempt);
             }
 
             return attempt;
