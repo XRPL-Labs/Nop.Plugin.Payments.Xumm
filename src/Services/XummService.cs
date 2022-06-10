@@ -156,7 +156,7 @@ public class XummService : IXummService
     public async Task<string> GetSignInWithXummUrlAsync()
     {
         var payload = new XummPayloadTransaction(XummTransactionType.SignIn).ToXummPostJsonPayload();
-        return await GetPayloadRedirectUrlAsync(payload, "Sign In with Xumm for nopCommerce plugin.");
+        return await GetPayloadRedirectUrlAsync(payload, await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.SignInWithXummInstruction"));
     }
 
     public async Task<string> GetSetTrustLineUrlAsync(string account, string issuer, string currency)
@@ -165,8 +165,9 @@ public class XummService : IXummService
         {
             Flags = XrplTrustSetFlags.tfSetNoRipple
         }.ToXummPostJsonPayload();
-
-        return await GetPayloadRedirectUrlAsync(payload, $"Set TrustLine for nopCommerce payments in {currency.GetFormattedCurrency()}.");
+        
+        var instruction = string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.SetTrustLineInstruction"), currency.GetFormattedCurrency(), issuer);
+        return await GetPayloadRedirectUrlAsync(payload, instruction);
     }
 
     public async Task<bool> IsTrustLineRequiredAsync(string xrpAddress, string issuer, string currency)

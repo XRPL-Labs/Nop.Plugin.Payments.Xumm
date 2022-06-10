@@ -330,6 +330,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.XrplAddress"] = "XRPL Address",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Hint"] = "Accounts in the XRP Ledger are identified by an address in the XRP Ledger's base58 format, such as rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.SignInWithXumm"] = "Sign In with Xumm",
+            ["Plugins.Payments.Xumm.Fields.XrplAddress.SignInWithXummInstruction"] = "Sign In with Xumm for nopCommerce plugin.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Invalid"] = "XRPL Address {0} is an invalid XRPL Address format.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.TrustLinesFailed"] = "Unable to retrieve trust lines of XRPL Address {0}.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Wrong"] = "XRPL Address {0} was used to sign instead of {1}.",
@@ -343,6 +344,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.Required"] = "Currency is required",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.MissingTrustLine"] = "Missing trust line for selected currency code {0}.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.SetTrustLine"] = "Set Trust Line",
+            ["Plugins.Payments.Xumm.Fields.XrplCurrency.SetTrustLineInstruction"] = "Set TrustLine for nopCommerce payments in {0} of issuer {1}.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.FallBackSet"] = "XRPL Currency is set to {0}.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.TrustLineHeader"] = "Others",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.TrustLineSet"] = "Trust line for currency {0} of issuer {1} has been set.",
@@ -358,6 +360,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Refund.FailedTransaction"] = "Order refund with transaction hash {0} has failed with code {1}.",
             ["Plugins.Payments.Xumm.Payment.Instruction"] = "Pay with Xumm",
             ["Plugins.Payments.Xumm.Refund.Instruction"] = "Refund with Xumm",
+            ["Plugins.Payments.Xumm.Refund.MailDetails"] = "Mail has been sent with refund details. Queued email identifiers: {0}",
             ["Plugins.Payments.Xumm.PaymentMethodDescription"] = "Pay with Xumm",
             ["Plugins.Payments.Xumm.PaymentInfo.IsNotConfigured"] = "Plugin is not configured correctly.",
             ["Plugins.Payments.Xumm.Payment.Successful"] = "We have received your payment. Thanks!"

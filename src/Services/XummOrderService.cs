@@ -88,12 +88,10 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 var refundUrl = await GetRefundRedirectUrlAsync(refundPaymentRequest);
                 var messageQueueId = await _xummMailService.SendRefundMailToStoreOwnerAsync(refundPaymentRequest, refundUrl);
 
+                var errorMessage = string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Refund.MailDetails"), string.Join(", ", messageQueueId));
                 return new RefundPaymentResult
                 {
-                    Errors = new[]
-                    {
-                        $"Mail has been sent with refund details. Queued email identifiers: {string.Join(", ", messageQueueId)}."
-                    }
+                    Errors = new[] { errorMessage }
                 };
             }
             else
