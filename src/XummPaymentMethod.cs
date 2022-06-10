@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
-using Nop.Core;
 using Nop.Core.Domain.Cms;
 using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
@@ -27,7 +26,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
 {
     #region Fields
 
-    private readonly IXummPaymentService _xummPaymentService;
+    private readonly IXummOrderService _xummPaymentService;
     private readonly IXummService _xummService;
     private readonly IActionContextAccessor _actionContextAccessor;
     private readonly IOrderTotalCalculationService _orderTotalCalculationService;
@@ -38,8 +37,6 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     private readonly IOrderProcessingService _orderProcessingService;
     private readonly IEmailAccountService _emailAccountService;
     private readonly IMessageTemplateService _messageTemplateService;
-    private readonly IXummMailService _xummMailService;
-    private readonly IWorkContext _workContext;
     private readonly EmailAccountSettings _emailAccountSettings;
     private readonly XummPaymentSettings _xummPaymentSettings;
     private readonly WidgetSettings _widgetSettings;
@@ -49,7 +46,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     #region Ctor
 
     public XummPaymentMethod(
-        IXummPaymentService xummPaymentService,
+        IXummOrderService xummPaymentService,
         IXummService xummService,
         IActionContextAccessor actionContextAccessor,
         IOrderTotalCalculationService orderTotalCalculationService,
@@ -60,8 +57,6 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         IOrderProcessingService orderProcessingService,
         IEmailAccountService emailAccountService,
         IMessageTemplateService messageTemplateService,
-        IXummMailService xummMailService,
-        IWorkContext workContext,
         EmailAccountSettings emailAccountSettings,
         XummPaymentSettings xummPaymentSettings,
         WidgetSettings widgetSettings)
@@ -77,8 +72,6 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         _orderProcessingService = orderProcessingService;
         _emailAccountService = emailAccountService;
         _messageTemplateService = messageTemplateService;
-        _xummMailService = xummMailService;
-        _workContext = workContext;
         _emailAccountSettings = emailAccountSettings;
         _xummPaymentSettings = xummPaymentSettings;
         _widgetSettings = widgetSettings;
@@ -174,16 +167,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             throw new ArgumentNullException(nameof(refundPaymentRequest));
         }
 
-        var languageId = (await _workContext.GetWorkingLanguageAsync()).Id;
-        var messageQueueId = await _xummMailService.SendRefundMailToStoreOwnerAsync(refundPaymentRequest, languageId);
-
-        return new RefundPaymentResult
-        {
-            Errors = new[]
-            {
-                $"Mail has been sent with refund details. Queued email identifiers: {string.Join(", ", messageQueueId)}."
-            }
-        };
+        return await _xummPaymentService.ProcessRefundPaymentRequestAsync(refundPaymentRequest);
     }
 
     /// <summary>
@@ -370,7 +354,10 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.AdditionalFeePercentage.Hint"] = "Determines whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.",
             ["Plugins.Payments.Xumm.Payment.SuccessTransaction"] = "Order payment with transaction hash {0} has been processed.",
             ["Plugins.Payments.Xumm.Payment.FailedTransaction"] = "Order payment with transaction hash {0} has failed with code {1}.",
+            ["Plugins.Payments.Xumm.Refund.SuccessTransaction"] = "Order refund with transaction hash {0} has been processed.",
+            ["Plugins.Payments.Xumm.Refund.FailedTransaction"] = "Order refund with transaction hash {0} has failed with code {1}.",
             ["Plugins.Payments.Xumm.Payment.Instruction"] = "Pay with Xumm",
+            ["Plugins.Payments.Xumm.Refund.Instruction"] = "Refund with Xumm",
             ["Plugins.Payments.Xumm.PaymentMethodDescription"] = "Pay with Xumm",
             ["Plugins.Payments.Xumm.PaymentInfo.IsNotConfigured"] = "Plugin is not configured correctly.",
             ["Plugins.Payments.Xumm.Payment.Successful"] = "We have received your payment. Thanks!"

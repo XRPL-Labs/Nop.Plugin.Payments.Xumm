@@ -1,4 +1,5 @@
 ﻿using System;
+using Nop.Core.Caching;
 
 namespace Nop.Plugin.Payments.Xumm;
 
@@ -35,14 +36,26 @@ public static class XummDefaults
     public static string PaymentProcessorRouteName => $"{FullSystemName}.PaymentProcessor";
 
     /// <summary>
+    /// Gets the plugin refund processor handler route name
+    /// </summary>
+    public static string RefundProcessorRouteName => $"{FullSystemName}.Refundrocessor";
+
+    /// <summary>
     /// Gets the name of a generic attribute to store the attempt of an order payment
     /// </summary>
     public static string OrderPaymentAttemptAttributeName => "XummOrderPaymentAttempt";
 
     /// <summary>
-    /// Gets the name of a generic attribute to store the refund identifier
+    /// Gets the name of a generic attribute to store the refund count
     /// </summary>
-    public static string RefundIdAttributeName => "XummRefundId";
+    public static string OrderRefundCountAttributeName => "XummOrderRefundCount";
+
+    /// <summary>
+    /// Gets the name of a generic attribute to store the processed refund counts
+    /// </summary>
+    public static string OrderRefundProcessedCountsAttributeName => "XummOrderRefundProcessedCounts";
+
+    public static CacheKey RefundCacheKey => new($"{FullSystemName}-{{0}}", FullSystemName);
 
     public static class XRPL
     {
@@ -66,6 +79,8 @@ public static class XummDefaults
         /// <seealso href="https://xrpl.org/transaction-results.html"/>
         /// </summary>
         public static string SuccesTransactionResultPrefix => "tes";
+
+        public static int? RefundDestinationTag => null;
     }
 
     public static class Mail

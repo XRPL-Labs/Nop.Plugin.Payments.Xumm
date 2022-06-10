@@ -41,7 +41,6 @@ public class XummService : IXummService
     private readonly IXummPayloadClient _xummPayloadClient;
     private readonly CurrencySettings _currencySettings;
     private readonly XummPaymentSettings _xummPaymentSettings;
-    private readonly JsonSerializerOptions _serializerOptions;
     private readonly ILogger _logger;
 
     public XummService(
@@ -72,11 +71,6 @@ public class XummService : IXummService
         _currencySettings = currencySettings;
         _xummPaymentSettings = xummPaymentSettings;
         _logger = logger;
-
-        _serializerOptions = new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
     }
 
     public async Task<XummPong> GetPongAsync()
@@ -161,18 +155,17 @@ public class XummService : IXummService
 
     public async Task<string> GetSignInWithXummUrlAsync()
     {
-        var payload = new XummPostJsonPayload(JsonSerializer.Serialize(new XummPayloadTransaction(XummTransactionType.SignIn), _serializerOptions));
+        var payload = new XummPayloadTransaction(XummTransactionType.SignIn).ToXummPostJsonPayload();
         return await GetPayloadRedirectUrlAsync(payload, "Sign In with Xumm for nopCommerce plugin.");
     }
 
     public async Task<string> GetSetTrustLineUrlAsync(string account, string issuer, string currency)
     {
-        var trustSet = new XrplTrustSetTransaction(account, currency, issuer, XummDefaults.XRPL.TrustSetValue, XummDefaults.XRPL.Fee)
+        var payload = new XrplTrustSetTransaction(account, currency, issuer, XummDefaults.XRPL.TrustSetValue, XummDefaults.XRPL.Fee)
         {
             Flags = XrplTrustSetFlags.tfSetNoRipple
-        };
+        }.ToXummPostJsonPayload();
 
-        var payload = new XummPostJsonPayload(JsonSerializer.Serialize(trustSet, _serializerOptions));
         return await GetPayloadRedirectUrlAsync(payload, $"Set TrustLine for nopCommerce payments in {currency.GetFormattedCurrency()}.");
     }
 

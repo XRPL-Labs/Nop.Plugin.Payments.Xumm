@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.Xumm.Services;
 using Nop.Services.Logging;
+using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
 
 namespace Nop.Plugin.Payments.Xumm.Controllers;
@@ -11,11 +12,11 @@ namespace Nop.Plugin.Payments.Xumm.Controllers;
 [AutoValidateAntiforgeryToken]
 public class XummController : BasePaymentController
 {
-    private readonly IXummPaymentService _xummPaymentService;
+    private readonly IXummOrderService _xummPaymentService;
     private readonly ILogger _logger;
 
     public XummController(
-        IXummPaymentService xummPaymentService,
+        IXummOrderService xummPaymentService,
         ILogger logger)
     {
         _xummPaymentService = xummPaymentService;
@@ -39,6 +40,20 @@ public class XummController : BasePaymentController
         {
             await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
             return RedirectToAction("Index", "Home", new { area = string.Empty });
+        }
+    }
+
+    public async Task<IActionResult> ProcessRefundAsync(Guid orderGuid, int count)
+    {
+        try
+        {
+            var order = await _xummPaymentService.ProcessRefundAsync(orderGuid, false, count);
+            return RedirectToAction("Edit", "Order", new { id = order.Id, area = AreaNames.Admin });
+        }
+        catch (Exception ex)
+        {
+            await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
+            return RedirectToAction("Index", "Log", new { area = AreaNames.Admin });
         }
     }
 }

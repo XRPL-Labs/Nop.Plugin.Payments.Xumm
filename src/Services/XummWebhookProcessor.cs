@@ -10,11 +10,11 @@ namespace Nop.Plugin.Payments.Xumm.Services;
 
 public class XummWebhookProcessor : IXummWebhookProcessor
 {
-    private readonly IXummPaymentService _xummPaymentService;
+    private readonly IXummOrderService _xummPaymentService;
     private readonly ILogger _logger;
 
     public XummWebhookProcessor(
-        IXummPaymentService xummPaymentService,
+        IXummOrderService xummPaymentService,
         ILogger logger)
     {
         _xummPaymentService = xummPaymentService;
@@ -30,12 +30,16 @@ public class XummWebhookProcessor : IXummWebhookProcessor
                 return;
             }
 
-            var (orderGuid, payloadType, _) = OrderExtensions.ParseCustomIdentifier(xummWebhookBody.CustomMeta.Identifier);
+            var (orderGuid, payloadType, count) = OrderExtensions.ParseCustomIdentifier(xummWebhookBody.CustomMeta.Identifier);
             if (orderGuid != default)
             {
                 if (payloadType == XummPayloadType.Payment)
                 {
                     await _xummPaymentService.ProcessOrderAsync(orderGuid, true);
+                }
+                else if ( payloadType == XummPayloadType.Refund)
+                {
+                    await _xummPaymentService.ProcessRefundAsync(orderGuid, true, count);
                 }
             }
         }

@@ -5,10 +5,12 @@ using Nop.Services.Payments;
 
 namespace Nop.Plugin.Payments.Xumm.Services
 {
-    public interface IXummPaymentService
+    public interface IXummOrderService
     {
+        Task<RefundPaymentResult> ProcessRefundPaymentRequestAsync(RefundPaymentRequest refundPaymentRequest);
         Task<string> GetPaymentRedirectUrlAsync(PostProcessPaymentRequest postProcessPaymentRequest);
         Task<string> GetRefundRedirectUrlAsync(RefundPaymentRequest refundPaymentRequest);
         Task<Order> ProcessOrderAsync(Guid orderGuid, bool webhookCall);
+        Task<Order> ProcessRefundAsync(Guid orderGuid, bool webhookCall, int? count = null);
     }
 }

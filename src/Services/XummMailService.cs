@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Nop.Core;
+using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Messages;
+using Nop.Services.Catalog;
+using Nop.Services.Customers;
 using Nop.Services.Localization;
 using Nop.Services.Messages;
 using Nop.Services.Payments;
@@ -20,6 +23,9 @@ namespace Nop.Plugin.Payments.Xumm.Services
         private readonly IMessageTokenProvider _messageTokenProvider;
         private readonly IQueuedEmailService _queuedEmailService;
         private readonly ITokenizer _tokenizer;
+        private readonly IPriceFormatter _priceFormatter;
+        private readonly IWorkContext _workContext;
+        private readonly ICustomerService _customerService;
         private readonly EmailAccountSettings _emailAccountSettings;
 
         public XummMailService(IStoreContext storeContext,
@@ -30,6 +36,9 @@ namespace Nop.Plugin.Payments.Xumm.Services
             IMessageTokenProvider messageTokenProvider,
             IQueuedEmailService queuedEmailService,
             ITokenizer tokenizer,
+            IPriceFormatter priceFormatter, 
+            IWorkContext workContext,
+            ICustomerService customerService,
             EmailAccountSettings emailAccountSettings)
         {
             _storeContext = storeContext;
@@ -40,12 +49,17 @@ namespace Nop.Plugin.Payments.Xumm.Services
             _messageTokenProvider = messageTokenProvider;
             _queuedEmailService = queuedEmailService;
             _tokenizer = tokenizer;
+            _priceFormatter = priceFormatter;
+            _workContext = workContext;
+            _customerService = customerService;
             _emailAccountSettings = emailAccountSettings;
         }
 
-        public async Task<IList<int>> SendRefundMailToStoreOwnerAsync(RefundPaymentRequest refundPaymentRequest, int languageId)
+        public async Task<IList<int>> SendRefundMailToStoreOwnerAsync(RefundPaymentRequest refundPaymentRequest, string refundUrl)
         {
             var store = await _storeContext.GetCurrentStoreAsync();
+
+            var languageId = (await _workContext.GetWorkingLanguageAsync()).Id;
             languageId = await EnsureLanguageIsActiveAsync(languageId, store.Id);
 
             var messageTemplates = await GetActiveMessageTemplatesAsync(XummDefaults.Mail.RefundEmailTemplateSystemName, store.Id);
@@ -54,9 +68,11 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
             var tokens = new List<Token>
             {
-                new Token("Order.RefundAmount", "1337 XRP"),
-                new Token("Order.RefundUrl", "https://xumm.app"),
+                new Token("Order.RefundAmount", await _priceFormatter.FormatPriceAsync(refundPaymentRequest.AmountToRefund)),
+                new Token("Order.RefundUrl", refundUrl),
             };
+
+            var customer = await _workContext.GetCurrentCustomerAsync();
 
             return await messageTemplates.SelectAwait(async messageTemplate =>
             {
@@ -65,7 +81,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 await _messageTokenProvider.AddStoreTokensAsync(tokens, store, emailAccount);
                 await _messageTokenProvider.AddOrderTokensAsync(tokens, refundPaymentRequest.Order, languageId);
 
-                return await SendNotificationAsync(messageTemplate, emailAccount, languageId, tokens);
+                return await SendNotificationAsync(messageTemplate, emailAccount, customer, languageId, tokens);
             }).ToListAsync();
         }
 
@@ -106,7 +122,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             return messageTemplates?.Where(messageTemplate => messageTemplate.IsActive).ToList() ?? new List<MessageTemplate>();
         }
 
-        private async Task<int> SendNotificationAsync(MessageTemplate messageTemplate, EmailAccount emailAccount, int languageId, IList<Token> tokens)
+        private async Task<int> SendNotificationAsync(MessageTemplate messageTemplate, EmailAccount emailAccount, Customer customer, int languageId, IList<Token> tokens)
         {
             if (messageTemplate == null)
                 throw new ArgumentNullException(nameof(messageTemplate));
@@ -123,15 +139,15 @@ namespace Nop.Plugin.Payments.Xumm.Services
             var subjectReplaced = _tokenizer.Replace(subject, tokens, false);
             var bodyReplaced = _tokenizer.Replace(body, tokens, true);
 
-            var name = CommonHelper.EnsureMaximumLength(emailAccount.DisplayName, 300);
+            var fullName = await _customerService.GetCustomerFullNameAsync(customer);
 
             var email = new QueuedEmail
             {
                 Priority = QueuedEmailPriority.High,
                 From = emailAccount.Email,
-                FromName = name,
-                To = emailAccount.Email,
-                ToName = name,
+                FromName = CommonHelper.EnsureMaximumLength(emailAccount.DisplayName, 300),
+                To = customer.Email,
+                ToName = CommonHelper.EnsureMaximumLength(fullName, 300),
                 CC = string.Empty,
                 Bcc = bcc,
                 Subject = subjectReplaced,

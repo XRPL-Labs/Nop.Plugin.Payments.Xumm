@@ -40,6 +40,13 @@ public class RouteProvider : IRouteProvider
                 action = "ProcessPayment"
             });
 
+        endpointRouteBuilder.MapControllerRoute(XummDefaults.RefundProcessorRouteName, "Plugins/Xumm/ProcessRefund/{orderGuid}/{count}",
+            new
+            {
+                controller = "Xumm",
+                action = "ProcessRefund"
+            });
+
         endpointRouteBuilder.MapXummControllerRoute(XummDefaults.WebHooks.RouteName, "Plugins/Xumm/Webhook");
     }
 

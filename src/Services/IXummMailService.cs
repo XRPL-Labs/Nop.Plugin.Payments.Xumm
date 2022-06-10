@@ -6,6 +6,6 @@ namespace Nop.Plugin.Payments.Xumm.Services
 {
     public interface IXummMailService
     {
-        Task<IList<int>> SendRefundMailToStoreOwnerAsync(RefundPaymentRequest refundPaymentRequest, int languageId);
+        Task<IList<int>> SendRefundMailToStoreOwnerAsync(RefundPaymentRequest refundPaymentRequest, string refundUrl);
     }
 }
