@@ -27,7 +27,7 @@ public class XummController : BasePaymentController
     {
         try
         {
-            var order = await _xummPaymentService.ProcessOrderAsync(orderGuid, false);
+            var order = await _xummPaymentService.ProcessOrderAsync(orderGuid);
 
             if (order.PaymentStatus == PaymentStatus.Paid)
             {
@@ -47,7 +47,7 @@ public class XummController : BasePaymentController
     {
         try
         {
-            var order = await _xummPaymentService.ProcessRefundAsync(orderGuid, false, count);
+            var order = await _xummPaymentService.ProcessRefundAsync(orderGuid, count);
             return RedirectToAction("Edit", "Order", new { id = order.Id, area = AreaNames.Admin });
         }
         catch (Exception ex)

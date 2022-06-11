@@ -10,7 +10,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
         Task<RefundPaymentResult> ProcessRefundPaymentRequestAsync(RefundPaymentRequest refundPaymentRequest);
         Task<string> GetPaymentRedirectUrlAsync(PostProcessPaymentRequest postProcessPaymentRequest);
         Task<string> GetRefundRedirectUrlAsync(RefundPaymentRequest refundPaymentRequest);
-        Task<Order> ProcessOrderAsync(Guid orderGuid, bool webhookCall);
-        Task<Order> ProcessRefundAsync(Guid orderGuid, bool webhookCall, int? count = null);
+        Task<Order> ProcessOrderAsync(Guid orderGuid);
+        Task<Order> ProcessRefundAsync(Guid orderGuid, int? count);
     }
 }

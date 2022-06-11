@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Nop.Core.Infrastructure;
 using Nop.Plugin.Payments.Xumm.Services;
+using Nop.Plugin.Payments.Xumm.Services.AsyncLock;
 using Nop.Plugin.Payments.Xumm.WebSocket;
 using XUMM.NET.SDK;
 using XUMM.NET.SDK.Extensions;
@@ -22,6 +23,7 @@ public class NopStartup : INopStartup
     /// <param name="configuration">Configuration of the application</param>
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<IAsyncLockService, AsyncLockService>();
         services.AddScoped<IXrplWebSocket, XrplWebSocket>();
         services.AddScoped<IXummService, XummService>();
         services.AddScoped<IXummOrderService, XummOrderService>();

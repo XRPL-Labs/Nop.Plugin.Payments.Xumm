@@ -35,11 +35,11 @@ public class XummWebhookProcessor : IXummWebhookProcessor
             {
                 if (payloadType == XummPayloadType.Payment)
                 {
-                    await _xummPaymentService.ProcessOrderAsync(orderGuid, true);
+                    await _xummPaymentService.ProcessOrderAsync(orderGuid);
                 }
                 else if ( payloadType == XummPayloadType.Refund)
                 {
-                    await _xummPaymentService.ProcessRefundAsync(orderGuid, true, count);
+                    await _xummPaymentService.ProcessRefundAsync(orderGuid, count);
                 }
             }
         }

@@ -11,6 +11,7 @@ using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.Xumm.Enums;
 using Nop.Plugin.Payments.Xumm.Extensions;
+using Nop.Plugin.Payments.Xumm.Services.AsyncLock;
 using Nop.Services.Common;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
@@ -39,6 +40,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
         private readonly IStaticCacheManager _staticCacheManager;
         private readonly IXummMailService _xummMailService;
         private readonly INotificationService _notificationService;
+        private readonly IAsyncLockService _asyncLockService;
         private readonly IXummPayloadClient _xummPayloadClient;
         private readonly IXummService _xummService;
         private readonly XummPaymentSettings _xummPaymentSettings;
@@ -58,6 +60,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             IStaticCacheManager staticCacheManager,
             IXummMailService xummMailService,
             INotificationService notificationService,
+            IAsyncLockService asyncLockService,
             XummPaymentSettings xummPaymentSettings,
             ILogger logger)
         {
@@ -74,6 +77,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             _staticCacheManager = staticCacheManager;
             _xummMailService = xummMailService;
             _notificationService = notificationService;
+            _asyncLockService = asyncLockService;
             _xummPaymentSettings = xummPaymentSettings;
             _logger = logger;
         }
@@ -159,7 +163,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                 if (paymentPayloadStatus == XummPayloadStatus.Signed || paymentPayloadStatus == XummPayloadStatus.ExpiredSigned)
                 {
-                    (var success, paymentTransaction) = await HasSuccesTransactionAsync(order, XummPayloadType.Payment, paymentPayload.Response.Txid);
+                    (var success, paymentTransaction) = await HasSuccesTransactionAsync(order, XummPayloadType.Payment, paymentPayload.Response.Txid, false);
                     if (!success)
                     {
                         paymentTransaction = null;
@@ -195,7 +199,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                 try
                 {
-                    var balanceUsed = paymentTransaction.BalanceChanges[paymentPayload.Response.Account].Single();
+                    var balancesUsed = paymentTransaction.BalanceChanges[paymentPayload.Response.Account];
+                    var balanceUsed = balancesUsed.Where(x => decimal.Parse(x.Value, CultureInfo.InvariantCulture) < decimal.Zero).Single();
                     if (string.IsNullOrEmpty(balanceUsed.CounterParty))
                     {
                         refundTransaction.SetAmount(1000000);
@@ -212,7 +217,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                 try
                 {
-                    var balanceReceived = paymentTransaction.BalanceChanges[paymentPayload.Meta.Destination].Single();
+                    var balancesReceived = paymentTransaction.BalanceChanges[paymentPayload.Meta.Destination];
+                    var balanceReceived = balancesReceived.Where(x => decimal.Parse(x.Value, CultureInfo.InvariantCulture) > decimal.Zero).Single();
                     var amount = decimal.Parse(balanceReceived.Value, CultureInfo.InvariantCulture);
 
                     if (refundPaymentRequest.AmountToRefund > amount)
@@ -263,8 +269,9 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
         }
 
-        public async Task<Order> ProcessOrderAsync(Guid orderGuid, bool webhookCall)
+        public async Task<Order> ProcessOrderAsync(Guid orderGuid)
         {
+            var attempt = 0;
             try
             {
                 if (await _paymentPluginManager.LoadPluginBySystemNameAsync(XummDefaults.SystemName) is not XummPaymentMethod paymentMethod || !_paymentPluginManager.IsPluginActive(paymentMethod))
@@ -272,46 +279,52 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     throw new NopException($"{XummDefaults.SystemName} module cannot be loaded");
                 }
 
-                var order = await _orderService.GetOrderByGuidAsync(orderGuid);
-                if (order == null)
+                using (await _asyncLockService.LockAsync(orderGuid))
                 {
-                    throw new NopException($"{XummDefaults.SystemName} Order with {orderGuid} can't be found.");
-                }
+                    var order = await _orderService.GetOrderByGuidAsync(orderGuid);
+                    if (order == null)
+                    {
+                        throw new NopException($"{XummDefaults.SystemName} Order with {orderGuid} can't be found.");
+                    }
 
-                var attempt = await GetOrderAttemptAsync(order, false);
-                var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Payment, attempt);
-                var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
-                if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
-                {
-                    throw new NopException($"{XummDefaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
-                }
+                    // The order has already ben marked as paid or cancelled
+                    if (!_orderProcessingService.CanMarkOrderAsPaid(order) || !_orderProcessingService.CanCancelOrder(order))
+                    {
+                        return order;
+                    }
 
-                if (webhookCall)
-                {
-                    await InsertOrderNoteAsync(order, XummPayloadType.Payment, paymentStatus, attempt);
-                }
+                    attempt = await GetOrderAttemptAsync(order, false);
+                    var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Payment, attempt);
+                    var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
+                    if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
+                    {
+                        throw new NopException($"{XummDefaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
+                    }
 
-                switch (paymentStatus)
-                {
-                    case XummPayloadStatus.Signed:
-                    case XummPayloadStatus.ExpiredSigned:
-                        await MarkOrderAsPaidAsync(order, payload.Response.Txid);
-                        break;
-                    case XummPayloadStatus.Rejected:
-                        await CancelOrderAsync(order);
-                        break;
-                }
+                    await InsertOrderNoteAsync(order, XummPayloadType.Payment, paymentStatus, payload.Response.ResolvedAt, attempt);
 
-                return order;
+                    switch (paymentStatus)
+                    {
+                        case XummPayloadStatus.Signed:
+                        case XummPayloadStatus.ExpiredSigned:
+                            await MarkOrderAsPaidAsync(order, payload.Response.Txid);
+                            break;
+                        case XummPayloadStatus.Rejected:
+                            await CancelOrderAsync(order);
+                            break;
+                    }
+
+                    return order;
+                }
             }
             catch (Exception ex)
             {
-                await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
+                await _logger.ErrorAsync($"{XummDefaults.SystemName}: Failed to process order with GUID {orderGuid} (#{attempt})", ex);
                 throw;
             }
         }
 
-        public async Task<Order> ProcessRefundAsync(Guid orderGuid, bool webhookCall, int? count = null)
+        public async Task<Order> ProcessRefundAsync(Guid orderGuid, int? count)
         {
             try
             {
@@ -320,92 +333,93 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     throw new NopException($"{XummDefaults.SystemName} module cannot be loaded");
                 }
 
-                var order = await _orderService.GetOrderByGuidAsync(orderGuid);
-                if (order == null)
+                using (await _asyncLockService.LockAsync(orderGuid))
                 {
-                    throw new NopException($"{XummDefaults.SystemName} Order with {orderGuid} can't be found.");
-                }
-
-                if (!count.HasValue)
-                {
-                    count = await GetRefundCountAndAmountAsync(order, false);
-                }
-
-                var processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, XummDefaults.OrderRefundProcessedCountsAttributeName) ?? new List<int>();
-                if (processed.Contains(count.Value))
-                {
-                    return order;
-                }
-
-                var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Refund, count.Value);
-                var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
-                if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
-                {
-                    throw new NopException($"{XummDefaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
-                }
-
-                if (webhookCall)
-                {
-                    await InsertOrderNoteAsync(order, XummPayloadType.Refund, paymentStatus, count.Value);
-                }
-
-                var setAsProcessed = true;
-                if (paymentStatus == XummPayloadStatus.Signed || paymentStatus == XummPayloadStatus.ExpiredSigned)
-                {
-                    var (success, transaction) = await HasSuccesTransactionAsync(order, XummPayloadType.Refund, payload.Response.Txid);
-                    if (success)
+                    var order = await _orderService.GetOrderByGuidAsync(orderGuid);
+                    if (order == null)
                     {
-                        var amount = decimal.Zero;
+                        throw new NopException($"{XummDefaults.SystemName} Order with {orderGuid} can't be found.");
+                    }
 
-                        if (transaction.BalanceChanges.TryGetValue(payload.Response.Account, out var changes))
+                    if (!count.HasValue)
+                    {
+                        count = await GetRefundCountAndAmountAsync(order, false);
+                    }
+
+                    var processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, XummDefaults.OrderRefundProcessedCountsAttributeName) ?? new List<int>();
+                    if (processed.Contains(count.Value))
+                    {
+                        return order;
+                    }
+
+                    var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Refund, count.Value);
+                    var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
+                    if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
+                    {
+                        throw new NopException($"{XummDefaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
+                    }
+
+                    await InsertOrderNoteAsync(order, XummPayloadType.Refund, paymentStatus, payload.Response.ResolvedAt, count.Value);
+
+                    var setAsProcessed = true;
+                    if (paymentStatus == XummPayloadStatus.Signed || paymentStatus == XummPayloadStatus.ExpiredSigned)
+                    {
+                        var (success, transaction) = await HasSuccesTransactionAsync(order, XummPayloadType.Refund, payload.Response.Txid, true);
+                        if (success)
                         {
-                            foreach (var change in changes)
+                            var amount = decimal.Zero;
+
+                            if (transaction.BalanceChanges.TryGetValue(payload.Response.Account, out var changes))
                             {
-                                // TODO: Do we have to match the XRPL CurrencyCode?
-                                if (decimal.TryParse(change.Value, out var changedAmount))
+                                foreach (var change in changes.Where(x => decimal.Parse(x.Value, CultureInfo.InvariantCulture) < decimal.Zero))
                                 {
-                                    amount += changedAmount;
+                                    // TODO: Do we have to match the XRPL CurrencyCode?
+                                    if (decimal.TryParse(change.Value, out var changedAmount))
+                                    {
+                                        amount += Math.Abs(changedAmount);
+                                    }
                                 }
                             }
-                        }
 
-                        var cachkeKey = _staticCacheManager.PrepareKeyForDefaultCache(XummDefaults.RefundCacheKey, order.OrderGuid);
-                        var refundAmounts = await _staticCacheManager.GetAsync(cachkeKey, () => new List<decimal>());
+                            var cachkeKey = _staticCacheManager.PrepareKeyForDefaultCache(XummDefaults.RefundCacheKey, order.OrderGuid);
+                            var refundAmounts = await _staticCacheManager.GetAsync(cachkeKey, () => new List<decimal>());
 
-                        if (!refundAmounts.Contains(amount))
-                        {
-                            refundAmounts.Add(amount);
-                        }
-
-                        // Set the refund amount in the cache so we can use the original refund flow
-                        // ProcessRefundPaymentRequestAsync will validate the refund amount
-                        await _staticCacheManager.SetAsync(cachkeKey, refundAmounts);
-
-                        // We can call partially refund even if it's a full refund because the order total will be checked
-                        var errors = await _orderProcessingService.PartiallyRefundAsync(order, amount);
-                        if (!webhookCall)
-                        {
-                            foreach (var error in errors)
+                            if (!refundAmounts.Contains(amount))
                             {
-                                _notificationService.ErrorNotification(error);
+                                refundAmounts.Add(amount);
                             }
+
+                            // Set the refund amount in the cache so we can use the original refund flow
+                            // ProcessRefundPaymentRequestAsync will validate the refund amount
+                            await _staticCacheManager.SetAsync(cachkeKey, refundAmounts);
+
+                            IList<string> errors;
+                            if (amount < order.OrderTotal)
+                            {
+                                errors = await _orderProcessingService.PartiallyRefundAsync(order, amount);
+                            }
+                            else
+                            {
+                                errors = await _orderProcessingService.RefundAsync(order);
+                            }
+
+                            setAsProcessed = !errors.Any();
                         }
-                        setAsProcessed = !errors.Any();
                     }
-                }
 
-                if (setAsProcessed)
-                {
-                    processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, XummDefaults.OrderRefundProcessedCountsAttributeName) ?? new List<int>();
-                    processed.Add(count.Value);
-                    await _genericAttributeService.SaveAttributeAsync(order, XummDefaults.OrderRefundProcessedCountsAttributeName, processed);
-                }
+                    if (setAsProcessed)
+                    {
+                        processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, XummDefaults.OrderRefundProcessedCountsAttributeName) ?? new List<int>();
+                        processed.Add(count.Value);
+                        await _genericAttributeService.SaveAttributeAsync(order, XummDefaults.OrderRefundProcessedCountsAttributeName, processed);
+                    }
 
-                return order;
+                    return order;
+                }
             }
             catch (Exception ex)
             {
-                await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
+                await _logger.ErrorAsync($"{XummDefaults.SystemName}: Failed to refund order with GUID {orderGuid} (#{count})", ex);
                 throw;
             }
         }
@@ -417,7 +431,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 return;
             }
 
-            var (success, _) = await HasSuccesTransactionAsync(order, XummPayloadType.Payment, transactionId);
+            var (success, _) = await HasSuccesTransactionAsync(order, XummPayloadType.Payment, transactionId, true);
             if (success)
             {
                 // Re-validate if the order can still be marked as paid or it has been
@@ -429,7 +443,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
         }
 
-        private async Task<(bool success, XummTransaction transaction)> HasSuccesTransactionAsync(Order order, XummPayloadType xummPayloadType, string transactionHash)
+        private async Task<(bool success, XummTransaction transaction)> HasSuccesTransactionAsync(Order order, XummPayloadType xummPayloadType, string transactionHash, bool insertNote)
         {
             var transaction = await _xummMiscClient.GetTransactionAsync(transactionHash);
             if (transaction == null)
@@ -447,8 +461,11 @@ namespace Nop.Plugin.Payments.Xumm.Services
             var result = transactionResult.GetString();
             var success = result.StartsWith(XummDefaults.XRPL.SuccesTransactionResultPrefix);
 
-            var message = string.Format(await _localizationService.GetResourceAsync($"Plugins.Payments.Xumm.{xummPayloadType}.{(success ? "Success" : "Failed")}Transaction"), transactionHash, result);
-            await InsertOrderNoteAsync(order, message);
+            if (insertNote)
+            {
+                var message = string.Format(await _localizationService.GetResourceAsync($"Plugins.Payments.Xumm.{xummPayloadType}.{(success ? "Success" : "Failed")}Transaction"), transactionHash, result);
+                await InsertOrderNoteAsync(order, message);
+            }
 
             return (success, transaction);
         }
@@ -461,9 +478,9 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
         }
 
-        private async Task InsertOrderNoteAsync(Order order, XummPayloadType payloadType, XummPayloadStatus status, int attempt)
+        private async Task InsertOrderNoteAsync(Order order, XummPayloadType payloadType, XummPayloadStatus status, DateTime? resolvedAt, int attempt)
         {
-            await InsertOrderNoteAsync(order, $"{payloadType}: {status.GetDescription()} (#{attempt})");
+            await InsertOrderNoteAsync(order, $"{payloadType}: {status.GetDescription()} (#{attempt})", createdOnUtc: resolvedAt);
         }
 
         private async Task<int> GetRefundCountAndAmountAsync(Order order, bool increment)
@@ -489,14 +506,14 @@ namespace Nop.Plugin.Payments.Xumm.Services
             return attempt;
         }
 
-        private async Task InsertOrderNoteAsync(Order order, string note, bool displayToCustomer = false)
+        private async Task InsertOrderNoteAsync(Order order, string note, bool displayToCustomer = false, DateTime? createdOnUtc = null)
         {
             await _orderService.InsertOrderNoteAsync(new OrderNote
             {
                 OrderId = order.Id,
                 Note = note,
                 DisplayToCustomer = displayToCustomer,
-                CreatedOnUtc = DateTime.UtcNow
+                CreatedOnUtc = createdOnUtc ?? DateTime.UtcNow
             });
         }
     }

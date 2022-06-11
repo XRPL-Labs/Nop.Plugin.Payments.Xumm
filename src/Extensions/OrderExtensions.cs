@@ -14,7 +14,7 @@ namespace Nop.Plugin.Payments.Xumm.Extensions
         internal static (Guid orderGuid, XummPayloadType payloadType, int count) ParseCustomIdentifier(string customIdentifier)
         {
             var countIndex = customIdentifier?.LastIndexOf('-') ?? -1;
-            var typeIndex = countIndex != -1 ? customIdentifier.LastIndexOf('-', countIndex) : -1;
+            var typeIndex = countIndex != -1 ? customIdentifier.LastIndexOf('-', countIndex - 1) : -1;
             if (countIndex == -1 || typeIndex == -1)
             {
                 return (default, default, default);
