@@ -15,7 +15,6 @@ using Nop.Plugin.Payments.Xumm.Services.AsyncLock;
 using Nop.Services.Common;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
-using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using XUMM.NET.SDK.Clients.Interfaces;
@@ -29,18 +28,18 @@ namespace Nop.Plugin.Payments.Xumm.Services
 {
     public class XummOrderService : IXummOrderService
     {
+        private readonly AsyncLockService _asyncLockService = new();
+
         private readonly IActionContextAccessor _actionContextAccessor;
         private readonly IGenericAttributeService _genericAttributeService;
         private readonly ILocalizationService _localizationService;
         private readonly IOrderProcessingService _orderProcessingService;
         private readonly IOrderService _orderService;
         private readonly IPaymentPluginManager _paymentPluginManager;
+        private readonly IStaticCacheManager _staticCacheManager;
         private readonly IUrlHelperFactory _urlHelperFactory;
         private readonly IXummMiscClient _xummMiscClient;
-        private readonly IStaticCacheManager _staticCacheManager;
         private readonly IXummMailService _xummMailService;
-        private readonly INotificationService _notificationService;
-        private readonly IAsyncLockService _asyncLockService;
         private readonly IXummPayloadClient _xummPayloadClient;
         private readonly IXummService _xummService;
         private readonly XummPaymentSettings _xummPaymentSettings;
@@ -53,14 +52,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
             IOrderProcessingService orderProcessingService,
             IOrderService orderService,
             IPaymentPluginManager paymentPluginManager,
+            IStaticCacheManager staticCacheManager,
             IUrlHelperFactory urlHelperFactory,
             IXummPayloadClient xummPayloadClient,
             IXummService xummService,
             IXummMiscClient xummMiscClient,
-            IStaticCacheManager staticCacheManager,
             IXummMailService xummMailService,
-            INotificationService notificationService,
-            IAsyncLockService asyncLockService,
             XummPaymentSettings xummPaymentSettings,
             ILogger logger)
         {
@@ -70,14 +67,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
             _orderProcessingService = orderProcessingService;
             _orderService = orderService;
             _paymentPluginManager = paymentPluginManager;
+            _staticCacheManager = staticCacheManager;
             _urlHelperFactory = urlHelperFactory;
             _xummPayloadClient = xummPayloadClient;
             _xummService = xummService;
             _xummMiscClient = xummMiscClient;
-            _staticCacheManager = staticCacheManager;
             _xummMailService = xummMailService;
-            _notificationService = notificationService;
-            _asyncLockService = asyncLockService;
             _xummPaymentSettings = xummPaymentSettings;
             _logger = logger;
         }
@@ -199,8 +194,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                 try
                 {
-                    var balancesUsed = paymentTransaction.BalanceChanges[paymentPayload.Response.Account];
-                    var balanceUsed = balancesUsed.Where(x => decimal.Parse(x.Value, CultureInfo.InvariantCulture) < decimal.Zero).Single();
+                    var balanceUsed = paymentTransaction.GetDeductedBalanceChanges(paymentPayload.Response.Account).First();
                     if (string.IsNullOrEmpty(balanceUsed.CounterParty))
                     {
                         refundTransaction.SetAmount(1000000);
@@ -212,34 +206,35 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 }
                 catch (Exception ex)
                 {
-                    throw new NopException($"{XummDefaults.SystemName} Order with {refundPaymentRequest.Order.OrderGuid} has no single currency used for the payment.", ex);
+                    throw new NopException($"{XummDefaults.SystemName} Failed to get deducted balance for order with GUID {refundPaymentRequest.Order.OrderGuid}.", ex);
                 }
 
                 try
                 {
-                    var balancesReceived = paymentTransaction.BalanceChanges[paymentPayload.Meta.Destination];
-                    var balanceReceived = balancesReceived.Where(x => decimal.Parse(x.Value, CultureInfo.InvariantCulture) > decimal.Zero).Single();
-                    var amount = decimal.Parse(balanceReceived.Value, CultureInfo.InvariantCulture);
+                    var balanceReceived = paymentTransaction.GetReceivedBalanceChanges(paymentPayload.Meta.Destination).First();
+
+                    if (!decimal.TryParse(balanceReceived.Value, out var amount))
+                    {
+                        throw new NopException($"{XummDefaults.SystemName} Can't parse amount {balanceReceived.Value} of order with GUID {refundPaymentRequest.Order.OrderGuid}.");
+                    }
 
                     if (refundPaymentRequest.AmountToRefund > amount)
                     {
-                        throw new NopException($"{XummDefaults.SystemName} Requested refund is higher than received amount for order with {refundPaymentRequest.Order.OrderGuid}.");
+                        throw new NopException($"{XummDefaults.SystemName} Requested refund is higher than received amount for order with GUID {refundPaymentRequest.Order.OrderGuid}.");
                     }
 
                     if (string.IsNullOrEmpty(balanceReceived.CounterParty))
                     {
                         refundTransaction.SetSendMaxAmount(refundPaymentRequest.AmountToRefund);
-                        //refundTransaction.SetDeliverMinAmount(amount);
                     }
                     else
                     {
                         refundTransaction.SetSendMaxAmount(balanceReceived.Currency, refundPaymentRequest.AmountToRefund, balanceReceived.CounterParty);
-                        //refundTransaction.SetDeliverMinAmount(balanceReceived.Currency, amount, balanceReceived.CounterParty);
                     }
                 }
                 catch (Exception ex)
                 {
-                    throw new NopException($"{XummDefaults.SystemName} Order with {refundPaymentRequest.Order.OrderGuid} has not received a single currency as a payment.", ex);
+                    throw new NopException($"{XummDefaults.SystemName} Failed to get received balance for order with GUID {refundPaymentRequest.Order.OrderGuid}.", ex);
                 }
 
                 var count = await GetRefundCountAndAmountAsync(refundPaymentRequest.Order, true);
@@ -278,7 +273,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 {
                     throw new NopException($"{XummDefaults.SystemName} module cannot be loaded");
                 }
-
+                
                 using (await _asyncLockService.LockAsync(orderGuid))
                 {
                     var order = await _orderService.GetOrderByGuidAsync(orderGuid);
@@ -369,16 +364,11 @@ namespace Nop.Plugin.Payments.Xumm.Services
                         {
                             var amount = decimal.Zero;
 
-                            if (transaction.BalanceChanges.TryGetValue(payload.Response.Account, out var changes))
+                            var changes = transaction.GetDeductedBalanceChanges(payload.Response.Account);
+                            foreach (var change in changes)
                             {
-                                foreach (var change in changes.Where(x => decimal.Parse(x.Value, CultureInfo.InvariantCulture) < decimal.Zero))
-                                {
-                                    // TODO: Do we have to match the XRPL CurrencyCode?
-                                    if (decimal.TryParse(change.Value, out var changedAmount))
-                                    {
-                                        amount += Math.Abs(changedAmount);
-                                    }
-                                }
+                                var changedAmount = change.Value.XrplStringNumberToDecimal();
+                                amount += Math.Abs(changedAmount);
                             }
 
                             var cachkeKey = _staticCacheManager.PrepareKeyForDefaultCache(XummDefaults.RefundCacheKey, order.OrderGuid);

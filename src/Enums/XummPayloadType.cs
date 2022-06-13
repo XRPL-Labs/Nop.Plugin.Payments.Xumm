@@ -1,6 +1,6 @@
 ﻿namespace Nop.Plugin.Payments.Xumm.Enums
 {
-    public enum XummPayloadType
+    internal enum XummPayloadType
     {
         Payment = 1,
         Refund = 2

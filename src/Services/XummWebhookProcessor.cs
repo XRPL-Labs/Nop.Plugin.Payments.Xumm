@@ -37,7 +37,7 @@ public class XummWebhookProcessor : IXummWebhookProcessor
                 {
                     await _xummPaymentService.ProcessOrderAsync(orderGuid);
                 }
-                else if ( payloadType == XummPayloadType.Refund)
+                else if (payloadType == XummPayloadType.Refund)
                 {
                     await _xummPaymentService.ProcessRefundAsync(orderGuid, count);
                 }

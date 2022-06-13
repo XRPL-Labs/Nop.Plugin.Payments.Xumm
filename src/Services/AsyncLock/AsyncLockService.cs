@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace Nop.Plugin.Payments.Xumm.Services.AsyncLock
 {
-    internal sealed class AsyncLockService : IAsyncLockService
+    internal sealed class AsyncLockService
     {
         private static readonly Dictionary<object, AsyncLockRefCount<SemaphoreSlim>> _semaphoreSlims = new();
 

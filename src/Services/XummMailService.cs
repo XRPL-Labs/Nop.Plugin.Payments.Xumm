@@ -15,52 +15,51 @@ namespace Nop.Plugin.Payments.Xumm.Services
 {
     public class XummMailService : IXummMailService
     {
-        private readonly IStoreContext _storeContext;
+        private readonly ICustomerService _customerService;
         private readonly IEmailAccountService _emailAccountService;
-        private readonly ILocalizationService _localizationService;
         private readonly ILanguageService _languageService;
+        private readonly ILocalizationService _localizationService;
         private readonly IMessageTemplateService _messageTemplateService;
         private readonly IMessageTokenProvider _messageTokenProvider;
+        private readonly IPriceFormatter _priceFormatter;
         private readonly IQueuedEmailService _queuedEmailService;
         private readonly ITokenizer _tokenizer;
-        private readonly IPriceFormatter _priceFormatter;
         private readonly IWorkContext _workContext;
-        private readonly ICustomerService _customerService;
+        private readonly IStoreContext _storeContext;
         private readonly EmailAccountSettings _emailAccountSettings;
 
-        public XummMailService(IStoreContext storeContext,
+        public XummMailService(
+            ICustomerService customerService,
             IEmailAccountService emailAccountService,
-            ILocalizationService localizationService,
             ILanguageService languageService,
+            ILocalizationService localizationService,
             IMessageTemplateService messageTemplateService,
             IMessageTokenProvider messageTokenProvider,
+            IPriceFormatter priceFormatter,
             IQueuedEmailService queuedEmailService,
             ITokenizer tokenizer,
-            IPriceFormatter priceFormatter, 
             IWorkContext workContext,
-            ICustomerService customerService,
+            IStoreContext storeContext,
             EmailAccountSettings emailAccountSettings)
         {
-            _storeContext = storeContext;
+            _customerService = customerService;
             _emailAccountService = emailAccountService;
-            _localizationService = localizationService;
             _languageService = languageService;
+            _localizationService = localizationService;
             _messageTemplateService = messageTemplateService;
             _messageTokenProvider = messageTokenProvider;
+            _priceFormatter = priceFormatter;
             _queuedEmailService = queuedEmailService;
             _tokenizer = tokenizer;
-            _priceFormatter = priceFormatter;
             _workContext = workContext;
-            _customerService = customerService;
+            _storeContext = storeContext;
             _emailAccountSettings = emailAccountSettings;
         }
 
         public async Task<IList<int>> SendRefundMailToStoreOwnerAsync(RefundPaymentRequest refundPaymentRequest, string refundUrl)
         {
             var store = await _storeContext.GetCurrentStoreAsync();
-
-            var languageId = (await _workContext.GetWorkingLanguageAsync()).Id;
-            languageId = await EnsureLanguageIsActiveAsync(languageId, store.Id);
+            var languageId = await GetActiveLanguageIdAsync(store.Id);
 
             var messageTemplates = await GetActiveMessageTemplatesAsync(XummDefaults.Mail.RefundEmailTemplateSystemName, store.Id);
             if (!messageTemplates.Any())
@@ -85,8 +84,9 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }).ToListAsync();
         }
 
-        private async Task<int> EnsureLanguageIsActiveAsync(int languageId, int storeId)
+        private async Task<int> GetActiveLanguageIdAsync(int storeId)
         {
+            var languageId = (await _workContext.GetWorkingLanguageAsync()).Id;
             var language = await _languageService.GetLanguageByIdAsync(languageId);
             if (language == null || !language.Published)
             {
@@ -130,15 +130,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
             if (emailAccount == null)
                 throw new ArgumentNullException(nameof(emailAccount));
 
-            // Retrieve localized message template data
             var bcc = await _localizationService.GetLocalizedAsync(messageTemplate, mt => mt.BccEmailAddresses, languageId);
             var subject = await _localizationService.GetLocalizedAsync(messageTemplate, mt => mt.Subject, languageId);
             var body = await _localizationService.GetLocalizedAsync(messageTemplate, mt => mt.Body, languageId);
 
-            // Replace subject and body tokens
             var subjectReplaced = _tokenizer.Replace(subject, tokens, false);
             var bodyReplaced = _tokenizer.Replace(body, tokens, true);
-
             var fullName = await _customerService.GetCustomerFullNameAsync(customer);
 
             var email = new QueuedEmail
@@ -156,7 +153,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 CreatedOnUtc = DateTime.UtcNow,
                 EmailAccountId = emailAccount.Id,
                 DontSendBeforeDateUtc = !messageTemplate.DelayBeforeSend.HasValue ? null
-                    : (DateTime?)(DateTime.UtcNow + TimeSpan.FromHours(messageTemplate.DelayPeriod.ToHours(messageTemplate.DelayBeforeSend.Value)))
+                    : DateTime.UtcNow + TimeSpan.FromHours(messageTemplate.DelayPeriod.ToHours(messageTemplate.DelayBeforeSend.Value))
             };
 
             await _queuedEmailService.InsertQueuedEmailAsync(email);

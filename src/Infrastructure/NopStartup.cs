@@ -23,7 +23,6 @@ public class NopStartup : INopStartup
     /// <param name="configuration">Configuration of the application</param>
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddScoped<IAsyncLockService, AsyncLockService>();
         services.AddScoped<IXrplWebSocket, XrplWebSocket>();
         services.AddScoped<IXummService, XummService>();
         services.AddScoped<IXummOrderService, XummOrderService>();
