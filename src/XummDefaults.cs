@@ -41,19 +41,14 @@ public static class XummDefaults
     public static string RefundProcessorRouteName => $"{FullSystemName}.Refundrocessor";
 
     /// <summary>
-    /// Gets the name of a generic attribute to store the attempt of an order payment
+    /// Gets the name of a generic attribute to store the attempt of an order payload type
     /// </summary>
-    public static string OrderPaymentAttemptAttributeName => "XummOrderPaymentAttempt";
+    public static string OrderPayloadCountAttributeName => "XummOrder{0}PayloadCount";
 
     /// <summary>
-    /// Gets the name of a generic attribute to store the refund count
+    /// Gets the name of a generic attribute to store the processed order payload counts
     /// </summary>
-    public static string OrderRefundCountAttributeName => "XummOrderRefundCount";
-
-    /// <summary>
-    /// Gets the name of a generic attribute to store the processed refund counts
-    /// </summary>
-    public static string OrderRefundProcessedCountsAttributeName => "XummOrderRefundProcessedCounts";
+    public static string OrderPayloadCountProcessedAttributeName => "XummOrder{0}PayloadCountProcessed";
 
     public static CacheKey RefundCacheKey => new($"{FullSystemName}-{{0}}", FullSystemName);
 
@@ -79,8 +74,6 @@ public static class XummDefaults
         /// <seealso href="https://xrpl.org/transaction-results.html"/>
         /// </summary>
         public static string SuccesTransactionResultPrefix => "tes";
-
-        public static int? RefundDestinationTag => null;
     }
 
     public static class Mail

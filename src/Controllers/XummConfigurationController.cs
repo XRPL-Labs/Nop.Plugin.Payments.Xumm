@@ -75,7 +75,8 @@ public class XummConfigurationController : BasePaymentController
             ApiSecret = settings.ApiSecret,
             WebhookUrl = _xummService.WebhookUrl,
             XrplAddress = settings.XrplAddress,
-            XrplDestinationTag = settings.XrplDestinationTag?.ToString(),
+            XrplPaymentDestinationTag = settings.XrplPaymentDestinationTag?.ToString(),
+            XrplRefundDestinationTag = settings.XrplRefundDestinationTag?.ToString(),
             XrplCurrency = IssuerCurrencyExtensions.GetCurrencyIdentifier(settings.XrplIssuer, settings.XrplCurrency),
             ValidXrplAddress = settings.XrplAddress.IsAccountAddress(),
             ValidApiCredentials = pong?.Pong ?? false,
@@ -89,7 +90,8 @@ public class XummConfigurationController : BasePaymentController
             model.ApiKey_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.ApiKey, storeScope);
             model.ApiSecret_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.ApiSecret, storeScope);
             model.XrplAddress_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplAddress, storeScope);
-            model.XrplDestinationTag_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplDestinationTag, storeScope);
+            model.XrplPaymentDestinationTag_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplPaymentDestinationTag, storeScope);
+            model.XrplRefundDestinationTag_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplRefundDestinationTag, storeScope);
             model.XrplCurrency_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplCurrency, storeScope);
         }
 
@@ -225,17 +227,30 @@ public class XummConfigurationController : BasePaymentController
             await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplAddress, model.XrplAddress_OverrideForStore, storeScope, false);
         }
 
-        var parsedDestinationTag = 0;
-        if (!string.IsNullOrWhiteSpace(model.XrplDestinationTag) && (!int.TryParse(model.XrplDestinationTag, out parsedDestinationTag) || parsedDestinationTag <= 0))
+        var parsedPaymentDestinationTag = 0;
+        if (!string.IsNullOrWhiteSpace(model.XrplPaymentDestinationTag) && (!int.TryParse(model.XrplPaymentDestinationTag, out parsedPaymentDestinationTag) || parsedPaymentDestinationTag <= 0))
         {
-            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplDestinationTag.Invalid"), model.XrplDestinationTag));
+            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag.Invalid"), model.XrplPaymentDestinationTag));
         }
 
-        var destinationTag = !string.IsNullOrWhiteSpace(model.XrplDestinationTag) ? (parsedDestinationTag > 0 ? parsedDestinationTag : settings.XrplDestinationTag) : null;
-        if (settings.XrplDestinationTag != destinationTag)
+        var paymentDestinationTag = !string.IsNullOrWhiteSpace(model.XrplPaymentDestinationTag) ? (parsedPaymentDestinationTag > 0 ? parsedPaymentDestinationTag : settings.XrplPaymentDestinationTag) : null;
+        if (settings.XrplPaymentDestinationTag != paymentDestinationTag)
         {
-            settings.XrplDestinationTag = destinationTag;
-            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplDestinationTag, model.XrplDestinationTag_OverrideForStore, storeScope, false);
+            settings.XrplPaymentDestinationTag = paymentDestinationTag;
+            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplPaymentDestinationTag, model.XrplPaymentDestinationTag_OverrideForStore, storeScope, false);
+        }
+
+        var parsedRefundDestinationTag = 0;
+        if (!string.IsNullOrWhiteSpace(model.XrplRefundDestinationTag) && (!int.TryParse(model.XrplRefundDestinationTag, out parsedRefundDestinationTag) || parsedRefundDestinationTag <= 0))
+        {
+            _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag.Invalid"), model.XrplRefundDestinationTag));
+        }
+
+        var refundRefundDestinationTag = !string.IsNullOrWhiteSpace(model.XrplRefundDestinationTag) ? (parsedRefundDestinationTag > 0 ? parsedRefundDestinationTag : settings.XrplRefundDestinationTag) : null;
+        if (settings.XrplRefundDestinationTag != refundRefundDestinationTag)
+        {
+            settings.XrplRefundDestinationTag = refundRefundDestinationTag;
+            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplRefundDestinationTag, model.XrplRefundDestinationTag_OverrideForStore, storeScope, false);
         }
 
         var (issuer, currency) = IssuerCurrencyExtensions.GetIssuerAndCurrency(model.XrplCurrency);

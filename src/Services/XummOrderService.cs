@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -106,7 +105,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
         {
             try
             {
-                var paymentTransaction = new XrplPaymentTransaction(_xummPaymentSettings.XrplAddress, _xummPaymentSettings.XrplDestinationTag, XummDefaults.XRPL.Fee);
+                var paymentTransaction = new XrplPaymentTransaction(_xummPaymentSettings.XrplAddress, _xummPaymentSettings.XrplPaymentDestinationTag, XummDefaults.XRPL.Fee);
                 if (_xummPaymentSettings.XrplCurrency == XummDefaults.XRPL.XRP)
                 {
                     paymentTransaction.SetAmount(postProcessPaymentRequest.Order.OrderTotal);
@@ -117,7 +116,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 }
 
                 var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.PaymentProcessorRouteName, new { orderGuid = postProcessPaymentRequest.Order.OrderGuid });
-                var attempt = await GetOrderAttemptAsync(postProcessPaymentRequest.Order, true);
+                var attempt = await GetOrderPayloadCountAsync(postProcessPaymentRequest.Order, XummPayloadType.Payment, true);
 
                 var payload = paymentTransaction.ToXummPostJsonPayload();
 
@@ -147,7 +146,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
         private async Task<(XummPayloadDetails, XummTransaction)> GetOrderPaymentDetailsAsync(Order order)
         {
-            var attempt = await GetOrderAttemptAsync(order, false);
+            var attempt = await GetOrderPayloadCountAsync(order, XummPayloadType.Payment, false);
             XummTransaction paymentTransaction = null;
 
             XummPayloadDetails paymentPayload;
@@ -187,7 +186,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     throw new NopException($"{XummDefaults.SystemName} Order with {refundPaymentRequest.Order.OrderGuid} has no signed payload.");
                 }
 
-                var refundTransaction = new XrplPaymentTransaction(paymentPayload.Response.Account, XummDefaults.XRPL.RefundDestinationTag, XummDefaults.XRPL.Fee)
+                var refundTransaction = new XrplPaymentTransaction(paymentPayload.Response.Account, _xummPaymentSettings.XrplRefundDestinationTag, XummDefaults.XRPL.Fee)
                 {
                     Flags = XrplPaymentFlags.tfPartialPayment
                 };
@@ -237,7 +236,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     throw new NopException($"{XummDefaults.SystemName} Failed to get received balance for order with GUID {refundPaymentRequest.Order.OrderGuid}.", ex);
                 }
 
-                var count = await GetRefundCountAndAmountAsync(refundPaymentRequest.Order, true);
+                var count = await GetOrderPayloadCountAsync(refundPaymentRequest.Order, XummPayloadType.Refund, true);
                 var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.RefundProcessorRouteName, new { orderGuid = refundPaymentRequest.Order.OrderGuid, count = count });
 
                 var refundPayload = refundTransaction.ToXummPostJsonPayload();
@@ -273,7 +272,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 {
                     throw new NopException($"{XummDefaults.SystemName} module cannot be loaded");
                 }
-                
+
                 using (await _asyncLockService.LockAsync(orderGuid))
                 {
                     var order = await _orderService.GetOrderByGuidAsync(orderGuid);
@@ -282,13 +281,13 @@ namespace Nop.Plugin.Payments.Xumm.Services
                         throw new NopException($"{XummDefaults.SystemName} Order with {orderGuid} can't be found.");
                     }
 
-                    // The order has already ben marked as paid or cancelled
-                    if (!_orderProcessingService.CanMarkOrderAsPaid(order) || !_orderProcessingService.CanCancelOrder(order))
+                    attempt = await GetOrderPayloadCountAsync(order, XummPayloadType.Payment, false);
+
+                    if (await HasProcessedOrderPayloadAsync(order, XummPayloadType.Payment, attempt))
                     {
                         return order;
                     }
 
-                    attempt = await GetOrderAttemptAsync(order, false);
                     var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Payment, attempt);
                     var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
                     if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
@@ -308,6 +307,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
                             await CancelOrderAsync(order);
                             break;
                     }
+
+                    await SetOrderPayloadAsProcessedAsync(order, XummPayloadType.Payment, attempt);
 
                     return order;
                 }
@@ -338,11 +339,10 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                     if (!count.HasValue)
                     {
-                        count = await GetRefundCountAndAmountAsync(order, false);
+                        count = await GetOrderPayloadCountAsync(order, XummPayloadType.Refund, false);
                     }
 
-                    var processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, XummDefaults.OrderRefundProcessedCountsAttributeName) ?? new List<int>();
-                    if (processed.Contains(count.Value))
+                    if (await HasProcessedOrderPayloadAsync(order, XummPayloadType.Refund, count.Value))
                     {
                         return order;
                     }
@@ -399,9 +399,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                     if (setAsProcessed)
                     {
-                        processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, XummDefaults.OrderRefundProcessedCountsAttributeName) ?? new List<int>();
-                        processed.Add(count.Value);
-                        await _genericAttributeService.SaveAttributeAsync(order, XummDefaults.OrderRefundProcessedCountsAttributeName, processed);
+                        await SetOrderPayloadAsProcessedAsync(order, XummPayloadType.Refund, count.Value);
                     }
 
                     return order;
@@ -424,12 +422,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             var (success, _) = await HasSuccesTransactionAsync(order, XummPayloadType.Payment, transactionId, true);
             if (success)
             {
-                // Re-validate if the order can still be marked as paid or it has been
-                // marked as paid by either the redirected consumer or webhook call
-                if (_orderProcessingService.CanMarkOrderAsPaid(order))
-                {
-                    await _orderProcessingService.MarkOrderAsPaidAsync(order);
-                }
+                await _orderProcessingService.MarkOrderAsPaidAsync(order);
             }
         }
 
@@ -450,7 +443,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
             var result = transactionResult.GetString();
             var success = result.StartsWith(XummDefaults.XRPL.SuccesTransactionResultPrefix);
-
+            
             if (insertNote)
             {
                 var message = string.Format(await _localizationService.GetResourceAsync($"Plugins.Payments.Xumm.{xummPayloadType}.{(success ? "Success" : "Failed")}Transaction"), transactionHash, result);
@@ -473,27 +466,36 @@ namespace Nop.Plugin.Payments.Xumm.Services
             await InsertOrderNoteAsync(order, $"{payloadType}: {status.GetDescription()} (#{attempt})", createdOnUtc: resolvedAt);
         }
 
-        private async Task<int> GetRefundCountAndAmountAsync(Order order, bool increment)
+        private async Task<int> GetOrderPayloadCountAsync(Order order, XummPayloadType xummPayloadType, bool increment)
         {
-            var count = await _genericAttributeService.GetAttributeAsync<int>(order, XummDefaults.OrderRefundCountAttributeName);
+            var key = string.Format(XummDefaults.OrderPayloadCountAttributeName, xummPayloadType);
+            var count = await _genericAttributeService.GetAttributeAsync<int>(order, key);
 
             if (increment)
             {
-                await _genericAttributeService.SaveAttributeAsync(order, XummDefaults.OrderRefundCountAttributeName, ++count);
+                await _genericAttributeService.SaveAttributeAsync(order, key, ++count);
             }
 
             return count;
         }
 
-        private async Task<int> GetOrderAttemptAsync(Order order, bool increment)
+        private async Task<bool> HasProcessedOrderPayloadAsync(Order order, XummPayloadType xummPayloadType, int count)
         {
-            var attempt = await _genericAttributeService.GetAttributeAsync<int>(order, XummDefaults.OrderPaymentAttemptAttributeName);
-            if (increment)
-            {
-                await _genericAttributeService.SaveAttributeAsync(order, XummDefaults.OrderPaymentAttemptAttributeName, ++attempt);
-            }
+            var key = string.Format(XummDefaults.OrderPayloadCountProcessedAttributeName, xummPayloadType);
+            var processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, key) ?? new List<int>();
+            return processed.Contains(count);
+        }
 
-            return attempt;
+        private async Task SetOrderPayloadAsProcessedAsync(Order order, XummPayloadType xummPayloadType, int count)
+        {
+            var key = string.Format(XummDefaults.OrderPayloadCountProcessedAttributeName, xummPayloadType);
+            var processed = await _genericAttributeService.GetAttributeAsync<List<int>>(order, key) ?? new List<int>();
+
+            if (!processed.Contains(count))
+            {
+                processed.Add(count);
+                await _genericAttributeService.SaveAttributeAsync(order, key, processed);
+            }
         }
 
         private async Task InsertOrderNoteAsync(Order order, string note, bool displayToCustomer = false, DateTime? createdOnUtc = null)

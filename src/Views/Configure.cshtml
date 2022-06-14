@@ -89,14 +89,24 @@
                             }
                         </div>
                     </div>
-                    <div class="form-group row" id="xrpldestinationtag">
+                    <div class="form-group row" id="xrplpaymentdestinationtag">
                         <div class="col-md-3">
-                            <nop-override-store-checkbox asp-for="XrplDestinationTag_OverrideForStore" asp-input="XrplDestinationTag" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
-                            <nop-label asp-for="XrplDestinationTag" asp-required="true" />
+                            <nop-override-store-checkbox asp-for="XrplPaymentDestinationTag_OverrideForStore" asp-input="XrplPaymentDestinationTag" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                            <nop-label asp-for="XrplPaymentDestinationTag" asp-required="true" />
                         </div>
                         <div class="col-md-3">
-                            <nop-editor asp-for="XrplDestinationTag" />
-                            <span asp-validation-for="XrplDestinationTag"></span>
+                            <nop-editor asp-for="XrplPaymentDestinationTag" />
+                            <span asp-validation-for="XrplPaymentDestinationTag"></span>
+                        </div>
+                    </div>
+                     <div class="form-group row" id="xrplrefunddestinationtag">
+                        <div class="col-md-3">
+                            <nop-override-store-checkbox asp-for="XrplRefundDestinationTag_OverrideForStore" asp-input="XrplRefundDestinationTag" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                            <nop-label asp-for="XrplRefundDestinationTag" asp-required="true" />
+                        </div>
+                        <div class="col-md-3">
+                            <nop-editor asp-for="XrplRefundDestinationTag" />
+                            <span asp-validation-for="XrplRefundDestinationTag"></span>
                         </div>
                     </div>
                 }

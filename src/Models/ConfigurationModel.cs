@@ -51,12 +51,20 @@ public record ConfigurationModel : BaseNopModel
     public bool ValidXrplAddress { get; set; }
 
     /// <summary>
-    /// Gets or sets an XRPL Destination Tag
+    /// Gets or sets an XRPL Payment Destination Tag
     /// </summary>
-    [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.XrplDestinationTag")]
-    public string XrplDestinationTag { get; set; }
+    [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag")]
+    public string XrplPaymentDestinationTag { get; set; }
 
-    public bool XrplDestinationTag_OverrideForStore { get; set; }
+    public bool XrplPaymentDestinationTag_OverrideForStore { get; set; }
+
+    /// <summary>
+    /// Gets or sets an XRPL Refund Destination Tag
+    /// </summary>
+    [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag")]
+    public string XrplRefundDestinationTag { get; set; }
+
+    public bool XrplRefundDestinationTag_OverrideForStore { get; set; }
 
     /// <summary>
     /// Gets or sets an XRPL Currency

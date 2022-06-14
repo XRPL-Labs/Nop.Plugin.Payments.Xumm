@@ -26,55 +26,55 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
 {
     #region Fields
 
-    private readonly IXummOrderService _xummPaymentService;
-    private readonly IXummService _xummService;
     private readonly IActionContextAccessor _actionContextAccessor;
-    private readonly IOrderTotalCalculationService _orderTotalCalculationService;
+    private readonly IEmailAccountService _emailAccountService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILocalizationService _localizationService;
+    private readonly IMessageTemplateService _messageTemplateService;
+    private readonly IOrderProcessingService _orderProcessingService;
+    private readonly IOrderTotalCalculationService _orderTotalCalculationService;
     private readonly ISettingService _settingService;
     private readonly IUrlHelperFactory _urlHelperFactory;
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly IOrderProcessingService _orderProcessingService;
-    private readonly IEmailAccountService _emailAccountService;
-    private readonly IMessageTemplateService _messageTemplateService;
+    private readonly IXummOrderService _xummPaymentService;
+    private readonly IXummService _xummService;
     private readonly EmailAccountSettings _emailAccountSettings;
-    private readonly XummPaymentSettings _xummPaymentSettings;
     private readonly WidgetSettings _widgetSettings;
+    private readonly XummPaymentSettings _xummPaymentSettings;
 
     #endregion
 
     #region Ctor
 
     public XummPaymentMethod(
-        IXummOrderService xummPaymentService,
-        IXummService xummService,
-        IActionContextAccessor actionContextAccessor,
-        IOrderTotalCalculationService orderTotalCalculationService,
+               IActionContextAccessor actionContextAccessor,
+        IEmailAccountService emailAccountService,
+        IHttpContextAccessor httpContextAccessor,
         ILocalizationService localizationService,
+        IMessageTemplateService messageTemplateService,
+        IOrderProcessingService orderProcessingService,
+        IOrderTotalCalculationService orderTotalCalculationService,
         ISettingService settingService,
         IUrlHelperFactory urlHelperFactory,
-        IHttpContextAccessor httpContextAccessor,
-        IOrderProcessingService orderProcessingService,
-        IEmailAccountService emailAccountService,
-        IMessageTemplateService messageTemplateService,
+        IXummService xummService,
+        IXummOrderService xummPaymentService,
         EmailAccountSettings emailAccountSettings,
-        XummPaymentSettings xummPaymentSettings,
-        WidgetSettings widgetSettings)
+        WidgetSettings widgetSettings,
+        XummPaymentSettings xummPaymentSettings)
     {
-        _xummPaymentService = xummPaymentService;
-        _xummService = xummService;
         _actionContextAccessor = actionContextAccessor;
-        _orderTotalCalculationService = orderTotalCalculationService;
+        _emailAccountService = emailAccountService;
+        _emailAccountSettings = emailAccountSettings;
+        _httpContextAccessor = httpContextAccessor;
         _localizationService = localizationService;
+        _messageTemplateService = messageTemplateService;
+        _orderProcessingService = orderProcessingService;
+        _orderTotalCalculationService = orderTotalCalculationService;
         _settingService = settingService;
         _urlHelperFactory = urlHelperFactory;
-        _httpContextAccessor = httpContextAccessor;
-        _orderProcessingService = orderProcessingService;
-        _emailAccountService = emailAccountService;
-        _messageTemplateService = messageTemplateService;
-        _emailAccountSettings = emailAccountSettings;
-        _xummPaymentSettings = xummPaymentSettings;
         _widgetSettings = widgetSettings;
+        _xummPaymentService = xummPaymentService;
+        _xummPaymentSettings = xummPaymentSettings;
+        _xummService = xummService;
     }
 
     #endregion
@@ -336,9 +336,12 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Wrong"] = "XRPL Address {0} was used to sign instead of {1}.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Set"] = "XRPL Address {0} has been set.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.FallBackNote"] = "Changing the XRPL Address could set the XRPL Currency to {0}; either if there was no currency selected or no trust line set.",
-            ["Plugins.Payments.Xumm.Fields.XrplDestinationTag"] = "XRPL Destination Tag",
-            ["Plugins.Payments.Xumm.Fields.XrplDestinationTag.Hint"] = "Arbitrary tag that identifies the reason for the payment to the destination, or a hosted recipient to pay.",
-            ["Plugins.Payments.Xumm.Fields.XrplDestinationTag.Invalid"] = "Destination Tag {0} is invalid.",
+            ["Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag"] = "XRPL Payment Destination Tag",
+            ["Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag.Hint"] = "Arbitrary tag that identifies the reason for the payment to the destination, or a hosted recipient to pay.",
+            ["Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag.Invalid"] = "Payment Destination Tag {0} is invalid.",
+            ["Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag"] = "XRPL Refund Destination Tag",
+            ["Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag.Hint"] = "Arbitrary tag that identifies the reason for the refund to the destination, or a hosted recipient to pay.",
+            ["Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag.Invalid"] = "Refund Destination Tag {0} is invalid.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency"] = "XRPL Currency",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.Hint"] = "Here you can select the currency you want to be paid in.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.Required"] = "Currency is required",

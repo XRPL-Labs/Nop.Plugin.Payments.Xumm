@@ -25,9 +25,14 @@ public class XummPaymentSettings : ISettings
     public string XrplAddress { get; set; }
 
     /// <summary>
-    /// The XRPL Destination Tag
+    /// The XRPL Payment Destination Tag
     /// </summary>
-    public int? XrplDestinationTag { get; set; }
+    public int? XrplPaymentDestinationTag { get; set; }
+
+    /// <summary>
+    /// The XRPL Refund Destination Tag
+    /// </summary>
+    public int? XrplRefundDestinationTag { get; set; }
 
     /// <summary>
     /// The currency you will be paid in

@@ -164,7 +164,7 @@ public class XummService : IXummService
         {
             Flags = XrplTrustSetFlags.tfSetNoRipple
         }.ToXummPostJsonPayload();
-        
+
         var instruction = string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.SetTrustLineInstruction"), currency.GetFormattedCurrency(), issuer);
         return await GetPayloadRedirectUrlAsync(payload, instruction);
     }
