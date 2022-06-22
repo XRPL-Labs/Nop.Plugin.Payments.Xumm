@@ -102,7 +102,7 @@ public static class XummDefaults
         /// Xumm payment method will be enabled even if the shops Webhook URL hasn't been configured in the Xumm Developer Console.
         /// Enabling this feature could cause orders not being marked as paid/cancelled.
         /// </summary>
-        public static bool AllowUnconfiguredWebhook => true; // TODO: Set to false
+        public static bool AllowUnconfiguredWebhook => false;
     }
 
     /// <summary>

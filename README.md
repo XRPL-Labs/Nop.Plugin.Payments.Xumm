@@ -55,6 +55,6 @@ For the ease of use a button will be shown next to the drop down list to redirec
 An optional [destination tag](https://xrpl.org/source-and-destination-tags.html) can be set and is formatted as a 32-bit unsigned integer.
 
 # Step 4: Validate Xumm Pay Configuration
-The [API Key](#api-credentials), [API Secret](#api-credentials), [Webhook URL](#webhook-url), [XRPL Address](#xrpl-address) and [XRPL Currency](#xrpl-currency) has to be configured as required and show green checkmarks in the input fields. 
+The [API Key](#api-credentials), [API Secret](#api-credentials), [Webhook URL](#webhook-url), [XRPL Address](#xrpl-address) and [XRPL Currency](#xrpl-currency) has to be configured as required. 
 
-Xumm Pay will not be visible for consumers if any of those fields show a red exclamation mark.
+Xumm Pay will not be visible for consumers if not configured correctly or a red exclamation mark is shown in a field.
