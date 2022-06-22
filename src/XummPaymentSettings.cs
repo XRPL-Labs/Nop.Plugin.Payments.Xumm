@@ -27,12 +27,12 @@ public class XummPaymentSettings : ISettings
     /// <summary>
     /// The XRPL Payment Destination Tag
     /// </summary>
-    public int? XrplPaymentDestinationTag { get; set; }
+    public uint? XrplPaymentDestinationTag { get; set; }
 
     /// <summary>
     /// The XRPL Refund Destination Tag
     /// </summary>
-    public int? XrplRefundDestinationTag { get; set; }
+    public uint? XrplRefundDestinationTag { get; set; }
 
     /// <summary>
     /// The currency you will be paid in

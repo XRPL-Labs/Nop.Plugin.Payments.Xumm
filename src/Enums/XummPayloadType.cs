@@ -1,8 +1,7 @@
-﻿namespace Nop.Plugin.Payments.Xumm.Enums
+﻿namespace Nop.Plugin.Payments.Xumm.Enums;
+
+internal enum XummPayloadType
 {
-    internal enum XummPayloadType
-    {
-        Payment = 1,
-        Refund = 2
-    }
+    Payment = 1,
+    Refund = 2
 }

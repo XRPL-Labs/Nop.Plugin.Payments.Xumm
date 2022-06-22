@@ -2,10 +2,9 @@
 using System.Threading.Tasks;
 using Nop.Services.Payments;
 
-namespace Nop.Plugin.Payments.Xumm.Services
+namespace Nop.Plugin.Payments.Xumm.Services;
+
+public interface IXummMailService
 {
-    public interface IXummMailService
-    {
-        Task<IList<int>> SendRefundMailToStoreOwnerAsync(RefundPaymentRequest refundPaymentRequest, string refundUrl);
-    }
+    Task<IList<int>> SendRefundMailToStoreOwnerAsync(RefundPaymentRequest refundPaymentRequest, string refundUrl);
 }

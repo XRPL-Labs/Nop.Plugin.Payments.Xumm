@@ -27,6 +27,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
 {
     public class XummOrderService : IXummOrderService
     {
+        #region Fields
+
         private readonly AsyncLockService _asyncLockService = new();
 
         private readonly IActionContextAccessor _actionContextAccessor;
@@ -43,6 +45,10 @@ namespace Nop.Plugin.Payments.Xumm.Services
         private readonly IXummService _xummService;
         private readonly XummPaymentSettings _xummPaymentSettings;
         private readonly ILogger _logger;
+
+        #endregion
+
+        #region Ctor
 
         public XummOrderService(
             IActionContextAccessor actionContextAccessor,
@@ -75,6 +81,10 @@ namespace Nop.Plugin.Payments.Xumm.Services
             _xummPaymentSettings = xummPaymentSettings;
             _logger = logger;
         }
+
+        #endregion
+
+        #region Methods
 
         public async Task<RefundPaymentResult> ProcessRefundPaymentRequestAsync(RefundPaymentRequest refundPaymentRequest)
         {
@@ -463,7 +473,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
         private async Task InsertOrderNoteAsync(Order order, XummPayloadType payloadType, XummPayloadStatus status, DateTime? resolvedAt, int attempt)
         {
-            await InsertOrderNoteAsync(order, $"{payloadType}: {status.GetDescription()} (#{attempt})", createdOnUtc: resolvedAt);
+            var description = await _localizationService.GetResourceAsync($"Plugins.Payments.Xumm.Payload.{status}");
+            await InsertOrderNoteAsync(order, $"{payloadType}: {description} (#{attempt})", createdOnUtc: resolvedAt);
         }
 
         private async Task<int> GetOrderPayloadCountAsync(Order order, XummPayloadType xummPayloadType, bool increment)
@@ -509,4 +520,6 @@ namespace Nop.Plugin.Payments.Xumm.Services
             });
         }
     }
+
+    #endregion
 }

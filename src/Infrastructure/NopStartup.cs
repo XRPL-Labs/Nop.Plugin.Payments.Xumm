@@ -3,7 +3,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Nop.Core.Infrastructure;
 using Nop.Plugin.Payments.Xumm.Services;
-using Nop.Plugin.Payments.Xumm.Services.AsyncLock;
 using Nop.Plugin.Payments.Xumm.WebSocket;
 using XUMM.NET.SDK;
 using XUMM.NET.SDK.Extensions;

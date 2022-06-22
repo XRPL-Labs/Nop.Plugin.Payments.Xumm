@@ -50,6 +50,9 @@ public static class XummDefaults
     /// </summary>
     public static string OrderPayloadCountProcessedAttributeName => "XummOrder{0}PayloadCountProcessed";
 
+    /// <summary>
+    /// Gets the <see cref="CacheKey"/> for the list of valid amounts to refund per order
+    /// </summary>
     public static CacheKey RefundCacheKey => new($"{FullSystemName}-{{0}}", FullSystemName);
 
     public static class XRPL
@@ -78,6 +81,9 @@ public static class XummDefaults
 
     public static class Mail
     {
+        /// <summary>
+        /// Gets the systemname of the refund email template
+        /// </summary>
         public static string RefundEmailTemplateSystemName => $"{SystemName}.RefundMessage";
     }
 
@@ -96,7 +102,7 @@ public static class XummDefaults
         /// Xumm payment method will be enabled even if the shops Webhook URL hasn't been configured in the Xumm Developer Console.
         /// Enabling this feature could cause orders not being marked as paid/cancelled.
         /// </summary>
-        public static bool AllowUnconfiguredWebhook => false;
+        public static bool AllowUnconfiguredWebhook => true; // TODO: Set to false
     }
 
     /// <summary>

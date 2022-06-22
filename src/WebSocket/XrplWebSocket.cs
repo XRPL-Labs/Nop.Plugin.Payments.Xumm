@@ -14,9 +14,15 @@ namespace Nop.Plugin.Payments.Xumm.WebSocket;
 
 public class XrplWebSocket : IXrplWebSocket
 {
+    #region Fields
+
     private const int CHUNK_SIZE = 1024;
     private readonly ILogger _logger;
     private readonly JsonSerializerOptions _serializerOptions;
+
+    #endregion
+
+    #region Ctor
 
     public XrplWebSocket(ILogger logger)
     {
@@ -32,12 +38,16 @@ public class XrplWebSocket : IXrplWebSocket
         };
     }
 
+    #endregion
+
+    #region Methods
+
     public async Task<List<AccountTrustLine>> GetAccountTrustLines(string account, bool throwError = false)
     {
         var result = new List<AccountTrustLine>();
         try
         {
-            object? marker = null;
+            object marker = null;
             do
             {
                 var accountLines = await GetAccountLinesAsync(account, marker);
@@ -58,7 +68,7 @@ public class XrplWebSocket : IXrplWebSocket
         return result;
     }
 
-    private async Task<AccountLines> GetAccountLinesAsync(string account, object? marker = null)
+    private async Task<AccountLines> GetAccountLinesAsync(string account, object marker = null)
     {
         try
         {
@@ -127,4 +137,6 @@ public class XrplWebSocket : IXrplWebSocket
 
         return JsonSerializer.Deserialize<T>(response.Result.ToString()!);
     }
+
+    #endregion
 }

@@ -10,8 +10,14 @@ namespace Nop.Plugin.Payments.Xumm.Services;
 
 public class XummWebhookProcessor : IXummWebhookProcessor
 {
+    #region Fields
+
     private readonly IXummOrderService _xummPaymentService;
     private readonly ILogger _logger;
+
+    #endregion
+
+    #region Ctor
 
     public XummWebhookProcessor(
         IXummOrderService xummPaymentService,
@@ -20,6 +26,10 @@ public class XummWebhookProcessor : IXummWebhookProcessor
         _xummPaymentService = xummPaymentService;
         _logger = logger;
     }
+
+    #endregion
+
+    #region Methods
 
     public async Task ProcessAsync(XummWebhookBody xummWebhookBody)
     {
@@ -31,16 +41,19 @@ public class XummWebhookProcessor : IXummWebhookProcessor
             }
 
             var (orderGuid, payloadType, count) = OrderExtensions.ParseCustomIdentifier(xummWebhookBody.CustomMeta.Identifier);
-            if (orderGuid != default)
+            if (orderGuid == default)
             {
-                if (payloadType == XummPayloadType.Payment)
-                {
+                return;
+            }
+
+            switch (payloadType)
+            {
+                case XummPayloadType.Payment:
                     await _xummPaymentService.ProcessOrderAsync(orderGuid);
-                }
-                else if (payloadType == XummPayloadType.Refund)
-                {
+                    break;
+                case XummPayloadType.Refund:
                     await _xummPaymentService.ProcessRefundAsync(orderGuid, count);
-                }
+                    break;
             }
         }
         catch (Exception ex)
@@ -48,4 +61,6 @@ public class XummWebhookProcessor : IXummWebhookProcessor
             await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
         }
     }
+
+    #endregion
 }

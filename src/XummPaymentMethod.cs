@@ -46,7 +46,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     #region Ctor
 
     public XummPaymentMethod(
-               IActionContextAccessor actionContextAccessor,
+        IActionContextAccessor actionContextAccessor,
         IEmailAccountService emailAccountService,
         IHttpContextAccessor httpContextAccessor,
         ILocalizationService localizationService,
@@ -290,11 +290,13 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// <returns>A task that represents the asynchronous operation</returns>
     public override async Task InstallAsync()
     {
-        if (!_widgetSettings.ActiveWidgetSystemNames.Contains(XummDefaults.SystemName))
+        var defaultSettings = new XummPaymentSettings
         {
-            _widgetSettings.ActiveWidgetSystemNames.Add(XummDefaults.SystemName);
-            await _settingService.SaveSettingAsync(_widgetSettings);
-        }
+            XrplCurrency = XummDefaults.XRPL.XRP,
+            XrplIssuer = XummDefaults.XRPL.XRP
+        };
+
+        await _settingService.SaveSettingAsync(defaultSettings);
 
         await _localizationService.AddOrUpdateLocaleResourceAsync(new Dictionary<string, string>
         {
@@ -321,29 +323,29 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.ApiKey"] = "API Key",
             ["Plugins.Payments.Xumm.Fields.ApiKey.Hint"] = "Enter the API Key for the live environment.",
             ["Plugins.Payments.Xumm.Fields.ApiKey.Required"] = "API Key is required",
+            ["Plugins.Payments.Xumm.Fields.ApiKey.Invalid"] = "API Key format is invalid",
             ["Plugins.Payments.Xumm.Fields.ApiSecret"] = "API Secret",
             ["Plugins.Payments.Xumm.Fields.ApiSecret.Hint"] = "Enter the API Secret for the live environment.",
             ["Plugins.Payments.Xumm.Fields.ApiSecret.Required"] = "API Secret is required",
+            ["Plugins.Payments.Xumm.Fields.ApiSecret.Invalid"] = "API Secret format is invalid",
             ["Plugins.Payments.Xumm.Fields.WebhookUrl"] = "Webhook URL",
             ["Plugins.Payments.Xumm.Fields.WebhookUrl.Hint"] = "Update the webhook with URL at the 'Application details' section of 'Settings' in the Xumm Developer Dashboard.",
             ["Plugins.Payments.Xumm.Fields.WebhookUrl.NotConfigured"] = "Webhook URL has not been configured in the Xumm Developer Dashboard.",
-            ["Plugins.Payments.Xumm.Fields.XrplAddress"] = "XRPL Address",
+            ["Plugins.Payments.Xumm.Fields.XrplAddress"] = "R-Address",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Hint"] = "Accounts in the XRP Ledger are identified by an address in the XRP Ledger's base58 format, such as rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.SignInWithXumm"] = "Sign In with Xumm",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.SignInWithXummInstruction"] = "Sign In with Xumm for nopCommerce plugin.",
-            ["Plugins.Payments.Xumm.Fields.XrplAddress.Invalid"] = "XRPL Address {0} is an invalid XRPL Address format.",
+            ["Plugins.Payments.Xumm.Fields.XrplAddress.Invalid"] = "XRPL Address is an invalid format.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.TrustLinesFailed"] = "Unable to retrieve trust lines of XRPL Address {0}.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Wrong"] = "XRPL Address {0} was used to sign instead of {1}.",
             ["Plugins.Payments.Xumm.Fields.XrplAddress.Set"] = "XRPL Address {0} has been set.",
-            ["Plugins.Payments.Xumm.Fields.XrplAddress.FallBackNote"] = "Changing the XRPL Address could set the XRPL Currency to {0}; either if there was no currency selected or no trust line set.",
-            ["Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag"] = "XRPL Payment Destination Tag",
+            ["Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag"] = "Payment Destination Tag",
             ["Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag.Hint"] = "Arbitrary tag that identifies the reason for the payment to the destination, or a hosted recipient to pay.",
-            ["Plugins.Payments.Xumm.Fields.XrplPaymentDestinationTag.Invalid"] = "Payment Destination Tag {0} is invalid.",
-            ["Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag"] = "XRPL Refund Destination Tag",
+            ["Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag"] = "Refund Destination Tag",
             ["Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag.Hint"] = "Arbitrary tag that identifies the reason for the refund to the destination, or a hosted recipient to pay.",
-            ["Plugins.Payments.Xumm.Fields.XrplRefundDestinationTag.Invalid"] = "Refund Destination Tag {0} is invalid.",
-            ["Plugins.Payments.Xumm.Fields.XrplCurrency"] = "XRPL Currency",
-            ["Plugins.Payments.Xumm.Fields.XrplCurrency.Hint"] = "Here you can select the currency you want to be paid in.",
+            ["Plugins.Payments.Xumm.Fields.XrplDestinationTag.Invalid"] = "A destination tag is a value between 0 to 4,294,967,295.",
+            ["Plugins.Payments.Xumm.Fields.XrplCurrency"] = "Currency",
+            ["Plugins.Payments.Xumm.Fields.XrplCurrency.Hint"] = "Here you can select the XRPL Currency you want to be paid in.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.Required"] = "Currency is required",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.MissingTrustLine"] = "Missing trust line for selected currency code {0}.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.SetTrustLine"] = "Set Trust Line",
@@ -357,6 +359,13 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.AdditionalFee.ShouldBeGreaterThanOrEqualZero"] = "The additional fee should be greater than or equal 0",
             ["Plugins.Payments.Xumm.Fields.AdditionalFeePercentage"] = "Additional fee. Use percentage",
             ["Plugins.Payments.Xumm.Fields.AdditionalFeePercentage.Hint"] = "Determines whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.",
+            ["Plugins.Payments.Xumm.Payload.NotFound"] = "Sign request cannot be found or belongs to another application (API credentials).",
+            ["Plugins.Payments.Xumm.Payload.Signed"] = "Sign request has been resolved by the user by signing the sign request.",
+            ["Plugins.Payments.Xumm.Payload.Rejected"] = "Sign request has been resolved by the user by rejecting the sign request.",
+            ["Plugins.Payments.Xumm.Payload.Cancelled"] = "Sign request has been cancelled, user didn't interact.",
+            ["Plugins.Payments.Xumm.Payload.Expired"] = "Sign request expired, user didn't interact.",
+            ["Plugins.Payments.Xumm.Payload.ExpiredSigned"] = "Sign request expired, but user opened before expiration and resolved by signing after expiration.",
+            ["Plugins.Payments.Xumm.Payload.NotInteracted"] = "User did not interact with the QR code.",
             ["Plugins.Payments.Xumm.Payment.SuccessTransaction"] = "Order payment with transaction hash {0} has been processed.",
             ["Plugins.Payments.Xumm.Payment.FailedTransaction"] = "Order payment with transaction hash {0} has failed with code {1}.",
             ["Plugins.Payments.Xumm.Refund.SuccessTransaction"] = "Order refund with transaction hash {0} has been processed.",
@@ -385,6 +394,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             IsActive = true,
             EmailAccountId = emailAccount.Id
         };
+
         await _messageTemplateService.InsertMessageTemplateAsync(template);
 
         await base.InstallAsync();

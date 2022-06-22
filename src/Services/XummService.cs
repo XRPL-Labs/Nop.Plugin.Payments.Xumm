@@ -28,6 +28,8 @@ namespace Nop.Plugin.Payments.Xumm.Services;
 
 public class XummService : IXummService
 {
+    #region Fields
+
     private readonly IActionContextAccessor _actionContextAccessor;
     private readonly ICurrencyService _currencyService;
     private readonly ILocalizationService _localizationService;
@@ -41,6 +43,10 @@ public class XummService : IXummService
     private readonly CurrencySettings _currencySettings;
     private readonly XummPaymentSettings _xummPaymentSettings;
     private readonly ILogger _logger;
+
+    #endregion
+
+    #region Ctor
 
     public XummService(
         IActionContextAccessor actionContextAccessor,
@@ -71,6 +77,10 @@ public class XummService : IXummService
         _xummPaymentSettings = xummPaymentSettings;
         _logger = logger;
     }
+
+    #endregion
+
+    #region Methods
 
     public async Task<XummPong> GetPongAsync()
     {
@@ -225,6 +235,7 @@ public class XummService : IXummService
             catch (Exception ex)
             {
                 _notificationService.ErrorNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.TrustLinesFailed"), xrpAddress));
+                await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
             }
         }
 
@@ -355,5 +366,11 @@ public class XummService : IXummService
         }
     }
 
+    #endregion
+
+    #region Properties
+
     public string WebhookUrl => _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.WebHooks.RouteName, null);
+
+    #endregion
 }
