@@ -95,73 +95,6 @@ public class XummService : IXummService
         }
     }
 
-    public bool HasWebhookUrlConfigured(XummPong pong)
-    {
-        if (pong?.Auth.Application.WebhookUrl == null)
-        {
-            return false;
-        }
-
-        return WebhookUrl.Equals(pong.Auth.Application.WebhookUrl);
-    }
-
-    public async Task ProcessPayloadAsync(string customIdentifier)
-    {
-        var (payloadDetails, payloadStatus) = await GetPayloadDetailsAsync(customIdentifier);
-        if (payloadStatus != XummPayloadStatus.Signed && payloadStatus != XummPayloadStatus.ExpiredSigned)
-        {
-            return;
-        }
-
-        // Load settings for a chosen store scope
-        var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
-        var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(storeScope);
-
-        var isConfiguredAddress = payloadDetails.Response.Account.Equals(settings.XrplAddress);
-        if (payloadDetails.Payload.TxType.Equals(nameof(XummTransactionType.SignIn)))
-        {
-            if (!isConfiguredAddress)
-            {
-                settings.XrplAddress = payloadDetails.Response.Account;
-
-                var overrideForStore = storeScope > 0 && await _settingService.SettingExistsAsync(settings, x => x.XrplAddress, storeScope);
-                await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplAddress, overrideForStore, storeScope, false);
-
-                _notificationService.SuccessNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.Set"), settings.XrplAddress));
-
-                await SetFallBackForMissingTrustLineAsync(settings, storeScope);
-                await _settingService.ClearCacheAsync();
-            }
-        }
-        else if (payloadDetails.Payload.TxType.Equals(nameof(XrplTransactionType.TrustSet)))
-        {
-            if (!isConfiguredAddress)
-            {
-                _notificationService.ErrorNotification(string.Format(
-                    await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.Wrong"),
-                    payloadDetails.Response.Account, settings.XrplAddress));
-            }
-            else
-            {
-                var trustSetTransaction = payloadDetails.Payload.RequestJson.Deserialize<XrplTrustSetTransaction>();
-                if (trustSetTransaction == null)
-                {
-                    throw new NopException("Can't deserialize RequestJson of Payload as a XrplTrustSetTransaction.");
-                }
-
-                settings.XrplCurrency = trustSetTransaction.LimitAmount.Currency;
-                settings.XrplIssuer = trustSetTransaction.LimitAmount.Issuer;
-
-                var overrideForStore = storeScope > 0 && await _settingService.SettingExistsAsync(settings, x => x.XrplCurrency, storeScope);
-                await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplCurrency, overrideForStore, storeScope, false);
-                await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplIssuer, overrideForStore, storeScope);
-
-                _notificationService.SuccessNotification(
-                    string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.TrustLineSet"), settings.XrplCurrency, settings.XrplIssuer));
-            }
-        }
-    }
-
     public async Task<string> GetSignInWithXummUrlAsync()
     {
         var payload = new XummPayloadTransaction(XummTransactionType.SignIn).ToXummPostJsonPayload();
@@ -177,12 +110,6 @@ public class XummService : IXummService
 
         var instruction = string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.SetTrustLineInstruction"), currency.GetFormattedCurrency(), issuer);
         return await GetPayloadRedirectUrlAsync(payload, instruction);
-    }
-
-    public async Task<bool> IsTrustLineRequiredAsync(string xrpAddress, string issuer, string currency)
-    {
-        var accountTrustLines = await _xrplWebSocket.GetAccountTrustLines(xrpAddress);
-        return !currency.Equals(XummDefaults.XRPL.XRP) && !accountTrustLines.Any(x => x.Account.Equals(issuer) && x.Currency.Equals(currency));
     }
 
     public async Task<List<IssuerModel>> GetOrderedCurrenciesAsync(string xrpAddress)
@@ -292,37 +219,73 @@ public class XummService : IXummService
         return (payload, paymentStatus);
     }
 
-    private async Task<string> GetPayloadRedirectUrlAsync(XummPostJsonPayload payload, string instruction)
+    public async Task<bool> IsTrustLineRequiredAsync(string xrpAddress, string issuer, string currency)
     {
-        var customIdentifier = Guid.NewGuid().ToString();
-        var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.ProcessPayloadRouteName, new { customIdentifier = customIdentifier });
-
-        payload.Options = new XummPayloadOptions
-        {
-            ReturnUrl = new XummPayloadReturnUrl
-            {
-                Web = returnUrl
-            }
-        };
-        payload.CustomMeta = new XummPayloadCustomMeta
-        {
-            Instruction = instruction,
-            Identifier = customIdentifier
-        };
-
-        var result = await _xummPayloadClient.CreateAsync(payload, true);
-        if (result == null)
-        {
-            throw new NopException("Failed to get Xumm payload response.");
-        }
-
-        return result.Next.Always;
+        var accountTrustLines = await _xrplWebSocket.GetAccountTrustLines(xrpAddress);
+        return !currency.Equals(XummDefaults.XRPL.XRP) && !accountTrustLines.Any(x => x.Account.Equals(issuer) && x.Currency.Equals(currency));
     }
 
     public async Task<bool> IsPrimaryStoreCurrency(string currencyCode)
     {
         var currency = await _currencyService.GetCurrencyByIdAsync(_currencySettings.PrimaryStoreCurrencyId);
         return currency?.CurrencyCode == currencyCode;
+    }
+
+    public async Task ProcessPayloadAsync(string customIdentifier)
+    {
+        var (payloadDetails, payloadStatus) = await GetPayloadDetailsAsync(customIdentifier);
+        if (payloadStatus != XummPayloadStatus.Signed && payloadStatus != XummPayloadStatus.ExpiredSigned)
+        {
+            return;
+        }
+
+        // Load settings for a chosen store scope
+        var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
+        var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(storeScope);
+
+        var isConfiguredAddress = payloadDetails.Response.Account.Equals(settings.XrplAddress);
+        if (payloadDetails.Payload.TxType.Equals(nameof(XummTransactionType.SignIn)))
+        {
+            if (!isConfiguredAddress)
+            {
+                settings.XrplAddress = payloadDetails.Response.Account;
+
+                var overrideForStore = storeScope > 0 && await _settingService.SettingExistsAsync(settings, x => x.XrplAddress, storeScope);
+                await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplAddress, overrideForStore, storeScope, false);
+
+                _notificationService.SuccessNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.Set"), settings.XrplAddress));
+
+                await SetFallBackForMissingTrustLineAsync(settings, storeScope);
+                await _settingService.ClearCacheAsync();
+            }
+        }
+        else if (payloadDetails.Payload.TxType.Equals(nameof(XrplTransactionType.TrustSet)))
+        {
+            if (!isConfiguredAddress)
+            {
+                _notificationService.ErrorNotification(string.Format(
+                    await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.Wrong"),
+                    payloadDetails.Response.Account, settings.XrplAddress));
+            }
+            else
+            {
+                var trustSetTransaction = payloadDetails.Payload.RequestJson.Deserialize<XrplTrustSetTransaction>();
+                if (trustSetTransaction == null)
+                {
+                    throw new NopException("Can't deserialize RequestJson of Payload as a XrplTrustSetTransaction.");
+                }
+
+                settings.XrplCurrency = trustSetTransaction.LimitAmount.Currency;
+                settings.XrplIssuer = trustSetTransaction.LimitAmount.Issuer;
+
+                var overrideForStore = storeScope > 0 && await _settingService.SettingExistsAsync(settings, x => x.XrplCurrency, storeScope);
+                await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplCurrency, overrideForStore, storeScope, false);
+                await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplIssuer, overrideForStore, storeScope);
+
+                _notificationService.SuccessNotification(
+                    string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.TrustLineSet"), settings.XrplCurrency, settings.XrplIssuer));
+            }
+        }
     }
 
     public async Task<bool> HidePaymentMethodAsync()
@@ -364,6 +327,43 @@ public class XummService : IXummService
 
             _notificationService.WarningNotification(string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplCurrency.FallBackSet"), XummDefaults.XRPL.XRP));
         }
+    }
+
+    public bool HasWebhookUrlConfigured(XummPong pong)
+    {
+        if (pong?.Auth.Application.WebhookUrl == null)
+        {
+            return false;
+        }
+
+        return WebhookUrl.Equals(pong.Auth.Application.WebhookUrl);
+    }
+
+    private async Task<string> GetPayloadRedirectUrlAsync(XummPostJsonPayload payload, string instruction)
+    {
+        var customIdentifier = Guid.NewGuid().ToString();
+        var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.ProcessPayloadRouteName, new { customIdentifier = customIdentifier });
+
+        payload.Options = new XummPayloadOptions
+        {
+            ReturnUrl = new XummPayloadReturnUrl
+            {
+                Web = returnUrl
+            }
+        };
+        payload.CustomMeta = new XummPayloadCustomMeta
+        {
+            Instruction = instruction,
+            Identifier = customIdentifier
+        };
+
+        var result = await _xummPayloadClient.CreateAsync(payload, true);
+        if (result == null)
+        {
+            throw new NopException("Failed to get Xumm payload response.");
+        }
+
+        return result.Next.Always;
     }
 
     #endregion

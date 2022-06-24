@@ -7,9 +7,9 @@ namespace Nop.Plugin.Payments.Xumm.Services;
 
 public interface IXummOrderService
 {
-    Task<RefundPaymentResult> ProcessRefundPaymentRequestAsync(RefundPaymentRequest refundPaymentRequest);
     Task<string> GetPaymentRedirectUrlAsync(PostProcessPaymentRequest postProcessPaymentRequest);
     Task<string> GetRefundRedirectUrlAsync(RefundPaymentRequest refundPaymentRequest);
     Task<Order> ProcessOrderAsync(Guid orderGuid);
     Task<Order> ProcessRefundAsync(Guid orderGuid, int? count);
+    Task<RefundPaymentResult> ProcessRefundPaymentRequestAsync(RefundPaymentRequest refundPaymentRequest);
 }

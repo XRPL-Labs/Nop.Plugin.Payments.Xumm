@@ -86,31 +86,6 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
         #region Methods
 
-        public async Task<RefundPaymentResult> ProcessRefundPaymentRequestAsync(RefundPaymentRequest refundPaymentRequest)
-        {
-            var cachkeKey = _staticCacheManager.PrepareKeyForDefaultCache(XummDefaults.RefundCacheKey, refundPaymentRequest.Order.OrderGuid);
-            var refundAmounts = await _staticCacheManager.GetAsync(cachkeKey, () => new List<decimal>());
-
-            if (!refundAmounts.Contains(refundPaymentRequest.AmountToRefund))
-            {
-                var refundUrl = await GetRefundRedirectUrlAsync(refundPaymentRequest);
-                var messageQueueId = await _xummMailService.SendRefundMailToStoreOwnerAsync(refundPaymentRequest, refundUrl);
-
-                var errorMessage = string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Refund.MailDetails"), string.Join(", ", messageQueueId));
-                return new RefundPaymentResult
-                {
-                    Errors = new[] { errorMessage }
-                };
-            }
-            else
-            {
-                return new RefundPaymentResult
-                {
-                    NewPaymentStatus = refundPaymentRequest.AmountToRefund != refundPaymentRequest.Order.OrderTotal ? PaymentStatus.PartiallyRefunded : PaymentStatus.Refunded
-                };
-            }
-        }
-
         public async Task<string> GetPaymentRedirectUrlAsync(PostProcessPaymentRequest postProcessPaymentRequest)
         {
             try
@@ -419,6 +394,31 @@ namespace Nop.Plugin.Payments.Xumm.Services
             {
                 await _logger.ErrorAsync($"{XummDefaults.SystemName}: Failed to refund order with GUID {orderGuid} (#{count})", ex);
                 throw;
+            }
+        }
+
+        public async Task<RefundPaymentResult> ProcessRefundPaymentRequestAsync(RefundPaymentRequest refundPaymentRequest)
+        {
+            var cachkeKey = _staticCacheManager.PrepareKeyForDefaultCache(XummDefaults.RefundCacheKey, refundPaymentRequest.Order.OrderGuid);
+            var refundAmounts = await _staticCacheManager.GetAsync(cachkeKey, () => new List<decimal>());
+
+            if (!refundAmounts.Contains(refundPaymentRequest.AmountToRefund))
+            {
+                var refundUrl = await GetRefundRedirectUrlAsync(refundPaymentRequest);
+                var messageQueueId = await _xummMailService.SendRefundMailToStoreOwnerAsync(refundPaymentRequest, refundUrl);
+
+                var errorMessage = string.Format(await _localizationService.GetResourceAsync("Plugins.Payments.Xumm.Refund.MailDetails"), string.Join(", ", messageQueueId));
+                return new RefundPaymentResult
+                {
+                    Errors = new[] { errorMessage }
+                };
+            }
+            else
+            {
+                return new RefundPaymentResult
+                {
+                    NewPaymentStatus = refundPaymentRequest.AmountToRefund != refundPaymentRequest.Order.OrderTotal ? PaymentStatus.PartiallyRefunded : PaymentStatus.Refunded
+                };
             }
         }
 

@@ -57,7 +57,7 @@ public class XrplWebSocket : IXrplWebSocket
         }
         catch (Exception ex)
         {
-            await _logger.ErrorAsync($"Failed to retrieve all account trust lines of account {account}.", ex);
+            await _logger.ErrorAsync($"{XummDefaults.SystemName}: Failed to retrieve all account trust lines of account {account}.", ex);
 
             if (throwError)
             {
@@ -82,7 +82,7 @@ public class XrplWebSocket : IXrplWebSocket
         }
         catch (Exception ex)
         {
-            await _logger.ErrorAsync($"Failed to retrieve account lines of {account}.", ex);
+            await _logger.ErrorAsync($"{XummDefaults.SystemName}: Failed to retrieve account lines of {account}.", ex);
             throw;
         }
     }

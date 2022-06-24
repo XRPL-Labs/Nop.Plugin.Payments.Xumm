@@ -14,10 +14,13 @@ public static class XummDefaults
     public const string PAYMENT_INFO_VIEW_COMPONENT_NAME = "XummPaymentInfo";
 
     /// <summary>
-    /// Gets the plugin system name
+    /// Gets the system name of the plugin
     /// </summary>
     public static string SystemName => "Payments.Xumm";
 
+    /// <summary>
+    /// Gets the full system name of the plugin 
+    /// </summary>
     public static string FullSystemName => "Plugin.Payments.Xumm";
 
     /// <summary>
