@@ -1,5 +1,26 @@
 
-# Install plugin
+# Xumm Payment Module for nopCommerce
+
+## Features:
+
+### Easy Configuration
+1. [Sign up](https://apps.xumm.dev/) for a Xumm Developer account, if you don't already have one.
+2. Install the plugin in nopCommerce.
+3. Configure the API Credentials and set your XRPL Account with optional destination tags.
+4. You're all set to receive payments and process refunds.
+
+### Receive Payments
+You can select XRP or any other XRPL token as currency from a list that contains all the trust lines set in your account and curated assets of Xumm. 
+
+Customers can pay with any XRPL token while the ledger handles the conversion to your shop currency after [XUMM Issue 392](https://github.com/XRPL-Labs/XUMM-Issue-Tracker/issues/392) is implemented and released. For now the payment by the customer has to be done with the same token as the configured XRPL Currency.
+
+### Process Refunds
+Refunds are made possible by using the mailing system of nopCommerce because transactions on the XRPL need to be signed.
+The refund email will be send to the logged in user that initiates the refund via the admin panel and will contain a link to the Xumm sign page of https://xumm.app/ containing the QR-code.
+
+
+# Instructions
+
 ## Step 1: Register a Xumm Developer account
 
 [Sign up](https://apps.xumm.dev/) for a Xumm Developer account, if you don't already have one.
@@ -60,10 +81,3 @@ An optional [destination tag](https://xrpl.org/source-and-destination-tags.html)
 The [API Key](#api-credentials), [API Secret](#api-credentials), [Webhook URL](#webhook-url), [XRPL Address](#xrpl-address) and [XRPL Currency](#xrpl-currency) has to be configured as required. 
 
 The Xumm payment method will not be visible for consumers if not configured correctly.
-
-# Refunds
-Refunds are made possible by using the mailing system of nopCommerce because transactions on the XRPL needs to be signed.
-The refund email will be send to the logged in user that initiates the refund via the admin panel and will contain a link to the sign page of https://xumm.app/.
-
-# Pay with any XRPL token
-Paying with any XRPL token via Xumm will be made possible after the implementation and release of Xumm Feature [#392](https://github.com/XRPL-Labs/XUMM-Issue-Tracker/issues/392).
