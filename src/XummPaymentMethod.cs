@@ -320,6 +320,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
                         2. Select the desired XRPL Currency to receive in the list that is populated with XRP, Curated Assets, Trust Lines of the XRPL Address.<br />
                         3. You will be redirected to the 'TrustSet' flow if you selected a Curated Asset wihout a Trust Line being set on the XRPL Address.<br />
                     </div>",
+            ["Plugins.Payments.Xumm.Button.ShowHideSecrets"] = "Show/Hide Secrets",
             ["Plugins.Payments.Xumm.Fields.ApiKey"] = "API Key",
             ["Plugins.Payments.Xumm.Fields.ApiKey.Hint"] = "Enter the API Key for the live environment.",
             ["Plugins.Payments.Xumm.Fields.ApiKey.Required"] = "API Key is required",
