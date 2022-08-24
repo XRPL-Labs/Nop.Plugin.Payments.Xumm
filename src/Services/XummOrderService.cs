@@ -107,6 +107,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                 payload.Options = new XummPayloadOptions
                 {
+                    Pathfinding = XummDefaults.XRPL.PathfindingEnabled,
                     ReturnUrl = new XummPayloadReturnUrl
                     {
                         Web = returnUrl
