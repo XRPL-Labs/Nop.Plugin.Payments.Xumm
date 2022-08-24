@@ -80,6 +80,11 @@ public static class XummDefaults
         /// <seealso href="https://xrpl.org/transaction-results.html"/>
         /// </summary>
         public static string SuccesTransactionResultPrefix => "tes";
+
+        /// <summary>
+        /// Enable pathfinding so the user can select the asset to send to deliver the requested asset amount.
+        /// </summary>
+        public static bool PathfindingEnabled = true;
     }
 
     public static class Mail
