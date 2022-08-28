@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Nop.Plugin.Payments.Xumm.WebSocket.Enums;
+using Nop.Plugin.Payments.Xumm.WebSocket.Models;
+using Nop.Services.Logging;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
@@ -6,9 +9,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using Nop.Plugin.Payments.Xumm.WebSocket.Enums;
-using Nop.Plugin.Payments.Xumm.WebSocket.Models;
-using Nop.Services.Logging;
+using XUMM.NET.SDK.Extensions;
+using XUMM.NET.SDK.Models.Payload.XRPL;
 
 namespace Nop.Plugin.Payments.Xumm.WebSocket;
 
@@ -41,6 +43,102 @@ public class XrplWebSocket : IXrplWebSocket
     #endregion
 
     #region Methods
+
+    public async Task<(decimal?, XrplPaymentPathSpecification[][]?)> GetDestinationAmountAndPathsAsync(PathFindRequest pathFindRequest, bool hasCounterParty)
+    {
+        decimal? destinationAmount = null;
+        XrplPaymentPathSpecification[][]? paths = null;
+
+        try
+        {
+            var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            source.Token.ThrowIfCancellationRequested();
+            
+            using var webSocket = new ClientWebSocket();
+            await webSocket.ConnectAsync(XummDefaults.WebSocket.Cluster, source.Token);
+
+            await SendMessageAsync(webSocket, pathFindRequest);
+
+            var buffer = new ArraySegment<byte>(new byte[1024]);
+
+            while (webSocket.State == WebSocketState.Open)
+            {
+                await using var ms = new MemoryStream();
+                WebSocketReceiveResult? result;
+
+                try
+                {
+                    do
+                    {
+                        result = await webSocket.ReceiveAsync(buffer, source.Token);
+                        ms.Write(buffer.Array!, buffer.Offset, result.Count);
+                    } while (!result.EndOfMessage && !source.Token.IsCancellationRequested);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+
+                ms.Seek(0, SeekOrigin.Begin);
+                ms.Position = 0;
+
+                var jsonElement = JsonSerializer.Deserialize<JsonElement>(ms);
+
+
+                if (!jsonElement.TryGetProperty("full_reply", out var fullReplyElement) || !fullReplyElement.GetBoolean() ||
+                    !jsonElement.TryGetProperty("alternatives", out var alternativesElement))
+                {
+                    continue;
+                }
+
+                foreach (var alternative in alternativesElement.EnumerateArray())
+                {
+                    if (alternative.TryGetProperty("paths_computed", out var pathsComputedElement))
+                    {
+                        paths = pathsComputedElement.Deserialize<XrplPaymentPathSpecification[][]>();
+                        
+                        if (paths != null)
+                        {
+                            if (alternative.TryGetProperty("destination_amount", out var destinationAmountElement))
+                            {
+                                if (hasCounterParty)
+                                {
+                                    var currencyAmount = destinationAmountElement.Deserialize<XrplTransactionCurrencyAmount>();
+                                    destinationAmount = currencyAmount?.Value.XrplStringNumberToDecimal();
+                                }
+                                else
+                                {
+                                    var currencyAmount = destinationAmountElement.GetString();
+                                    if (currencyAmount != null)
+                                    {
+                                        destinationAmount = currencyAmount.XrpDropsToDecimal();
+                                    }
+                                }
+                            }
+
+                            if (destinationAmount == null)
+                            {
+                                // Couldn't determine the amount to deliver for the found paths
+                                paths = null;
+                            }
+                            else
+                            {
+                                source.Cancel();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return (destinationAmount, paths);
+        }
+        catch (Exception ex)
+        {
+            await _logger.ErrorAsync($"{XummDefaults.SystemName}: .", ex);
+            throw;
+        }
+    }
 
     public async Task<List<AccountTrustLine>> GetAccountTrustLines(string account, bool throwError = false)
     {
@@ -99,22 +197,7 @@ public class XrplWebSocket : IXrplWebSocket
             return null;
         }
 
-        var message = JsonSerializer.SerializeToUtf8Bytes(request, _serializerOptions);
-        var messagesCount = (int)Math.Ceiling((double)message.Length / CHUNK_SIZE);
-
-        for (var i = 0; i < messagesCount; i++)
-        {
-            var offset = CHUNK_SIZE * i;
-            var count = CHUNK_SIZE;
-            var lastMessage = i + 1 == messagesCount;
-
-            if (count * (i + 1) > message.Length)
-            {
-                count = message.Length - offset;
-            }
-
-            await webSocket.SendAsync(new ArraySegment<byte>(message, offset, count), WebSocketMessageType.Text, lastMessage, cancellationToken);
-        }
+        await SendMessageAsync(webSocket, request);
 
         var buffer = new ArraySegment<byte>(new byte[CHUNK_SIZE]);
 
@@ -136,6 +219,26 @@ public class XrplWebSocket : IXrplWebSocket
         }
 
         return JsonSerializer.Deserialize<T>(response.Result.ToString()!);
+    }
+
+    private async Task SendMessageAsync(ClientWebSocket clientWebSocket, object request)
+    {
+        var message = JsonSerializer.SerializeToUtf8Bytes(request, _serializerOptions);
+        var messagesCount = (int)Math.Ceiling((double)message.Length / CHUNK_SIZE);
+
+        for (var i = 0; i < messagesCount; i++)
+        {
+            var offset = CHUNK_SIZE * i;
+            var count = CHUNK_SIZE;
+            var lastMessage = i + 1 == messagesCount;
+
+            if (count * (i + 1) > message.Length)
+            {
+                count = message.Length - offset;
+            }
+
+            await clientWebSocket.SendAsync(new ArraySegment<byte>(message, offset, count), WebSocketMessageType.Text, lastMessage, CancellationToken.None);
+        }
     }
 
     #endregion

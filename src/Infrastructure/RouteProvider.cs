@@ -33,6 +33,14 @@ public class RouteProvider : IRouteProvider
                 area = AreaNames.Admin
             });
 
+
+        endpointRouteBuilder.MapControllerRoute(XummDefaults.StartRefundRouteName, "Plugins/Xumm/StartRefund/{orderGuid}/{amountToRefund}/{isPartialRefund}",
+            new
+            {
+                controller = "Xumm",
+                action = "StartRefund"
+            });
+
         endpointRouteBuilder.MapControllerRoute(XummDefaults.PaymentProcessorRouteName, "Plugins/Xumm/ProcessPayment/{orderGuid}",
             new
             {

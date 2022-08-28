@@ -34,6 +34,11 @@ public static class XummDefaults
     public static string ProcessPayloadRouteName => $"{FullSystemName}.ProcessPayload";
 
     /// <summary>
+    /// Gets the plugin route name to start the refund process
+    /// </summary>
+    public static string StartRefundRouteName => $"{FullSystemName}.StartRefund";
+
+    /// <summary>
     /// Gets the plugin payment processor handler route name
     /// </summary>
     public static string PaymentProcessorRouteName => $"{FullSystemName}.PaymentProcessor";

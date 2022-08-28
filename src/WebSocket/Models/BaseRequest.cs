@@ -16,4 +16,7 @@ public class BaseRequest
 
     [JsonPropertyName("command")]
     public string Command { get; }
+
+    [JsonPropertyName("subcommand")]
+    public string? SubCommand { get; set; }
 }
