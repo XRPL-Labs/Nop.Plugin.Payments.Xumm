@@ -44,7 +44,7 @@ public class XrplWebSocket : IXrplWebSocket
 
     #region Methods
 
-    public async Task<(decimal?, XrplPaymentPathSpecification[][]?)> GetDestinationAmountAndPathsAsync(PathFindRequest pathFindRequest, bool hasCounterParty)
+    public async Task<(decimal?, XrplPaymentPathSpecification[][]?)> GetDestinationAmountAndPathsAsync(PathFindCreateRequest pathFindRequest, bool hasCounterParty)
     {
         decimal? destinationAmount = null;
         XrplPaymentPathSpecification[][]? paths = null;
@@ -84,7 +84,8 @@ public class XrplWebSocket : IXrplWebSocket
 
                 var jsonElement = JsonSerializer.Deserialize<JsonElement>(ms);
 
-
+                // Wait until we receive the best path for the current ledger
+                // https://xrpl.org/path_find.html#asynchronous-follow-ups
                 if (!jsonElement.TryGetProperty("full_reply", out var fullReplyElement) || !fullReplyElement.GetBoolean() ||
                     !jsonElement.TryGetProperty("alternatives", out var alternativesElement))
                 {
@@ -96,36 +97,40 @@ public class XrplWebSocket : IXrplWebSocket
                     if (alternative.TryGetProperty("paths_computed", out var pathsComputedElement))
                     {
                         paths = pathsComputedElement.Deserialize<XrplPaymentPathSpecification[][]>();
-                        
-                        if (paths != null)
-                        {
-                            if (alternative.TryGetProperty("destination_amount", out var destinationAmountElement))
-                            {
-                                if (hasCounterParty)
-                                {
-                                    var currencyAmount = destinationAmountElement.Deserialize<XrplTransactionCurrencyAmount>();
-                                    destinationAmount = currencyAmount?.Value.XrplStringNumberToDecimal();
-                                }
-                                else
-                                {
-                                    var currencyAmount = destinationAmountElement.GetString();
-                                    if (currencyAmount != null)
-                                    {
-                                        destinationAmount = currencyAmount.XrpDropsToDecimal();
-                                    }
-                                }
-                            }
 
-                            if (destinationAmount == null)
+                        if (paths == null)
+                        {
+                            continue;
+                        }
+
+                        if (alternative.TryGetProperty("destination_amount", out var destinationAmountElement))
+                        {
+                            if (hasCounterParty)
                             {
-                                // Couldn't determine the amount to deliver for the found paths
-                                paths = null;
+                                var currencyAmount = destinationAmountElement.Deserialize<XrplTransactionCurrencyAmount>();
+                                destinationAmount = currencyAmount?.Value.XrplStringNumberToDecimal();
                             }
                             else
                             {
-                                source.Cancel();
-                                break;
+                                var currencyAmount = destinationAmountElement.GetString();
+                                if (currencyAmount != null)
+                                {
+                                    destinationAmount = currencyAmount.XrpDropsToDecimal();
+                                }
                             }
+                        }
+
+                        if (destinationAmount == null)
+                        {
+                            // Couldn't determine the amount to deliver for the found paths
+                            paths = null;
+                        }
+                        else
+                        {
+                            await SendMessageAsync(webSocket, new PathFindCloseRequest());
+
+                            source.Cancel();
+                            break;
                         }
                     }
                 }

@@ -188,7 +188,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     Flags = XrplPaymentFlags.tfNoDirectRipple
                 };
 
-                var pathFindRequest = new PathFindRequest
+                var pathFindRequest = new PathFindCreateRequest
                 {
                     SourceAccount = _xummPaymentSettings.XrplAddress,
                     DestinationAccount = paymentPayload.Response.Account
