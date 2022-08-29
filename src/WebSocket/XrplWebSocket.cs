@@ -53,7 +53,7 @@ public class XrplWebSocket : IXrplWebSocket
         {
             var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             source.Token.ThrowIfCancellationRequested();
-            
+
             using var webSocket = new ClientWebSocket();
             await webSocket.ConnectAsync(XummDefaults.WebSocket.Cluster, source.Token);
 
@@ -136,6 +136,11 @@ public class XrplWebSocket : IXrplWebSocket
                 }
             }
 
+            if (webSocket.State == WebSocketState.Open)
+            {
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Finished fetching paths", source.Token);
+            }
+
             return (destinationAmount, paths);
         }
         catch (Exception ex)
@@ -150,13 +155,28 @@ public class XrplWebSocket : IXrplWebSocket
         var result = new List<AccountTrustLine>();
         try
         {
+            var source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            source.Token.ThrowIfCancellationRequested();
+
+            using var webSocket = new ClientWebSocket();
+            await webSocket.ConnectAsync(XummDefaults.WebSocket.Cluster, source.Token);
+            if (webSocket.State != WebSocketState.Open)
+            {
+                return result;
+            }
+
             object marker = null;
             do
             {
-                var accountLines = await GetAccountLinesAsync(account, marker);
+                var accountLines = await GetAccountLinesAsync(webSocket, source.Token, account, marker);
                 result.AddRange(accountLines.TrustLines);
                 marker = accountLines.Marker;
             } while (marker != null);
+
+            if (webSocket.State == WebSocketState.Open)
+            {
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Finished fetching account lines", source.Token);
+            }
         }
         catch (Exception ex)
         {
@@ -171,7 +191,7 @@ public class XrplWebSocket : IXrplWebSocket
         return result;
     }
 
-    private async Task<AccountLines> GetAccountLinesAsync(string account, object marker = null)
+    private async Task<AccountLines> GetAccountLinesAsync(ClientWebSocket webSocket, CancellationToken cancellationToken, string account, object marker = null)
     {
         try
         {
@@ -181,49 +201,34 @@ public class XrplWebSocket : IXrplWebSocket
                 Marker = marker
             };
 
-            return await SendMessageAsync<AccountLines>(XummDefaults.WebSocket.Cluster, request, CancellationToken.None);
+            await SendMessageAsync(webSocket, request);
+
+            var buffer = new ArraySegment<byte>(new byte[CHUNK_SIZE]);
+
+            await using var ms = new MemoryStream();
+
+            WebSocketReceiveResult result;
+            do
+            {
+                result = await webSocket.ReceiveAsync(buffer, cancellationToken);
+                ms.Write(buffer.Array!, buffer.Offset, result.Count);
+            } while (!result.EndOfMessage && !cancellationToken.IsCancellationRequested);
+
+            ms.Seek(0, SeekOrigin.Begin);
+
+            var response = JsonSerializer.Deserialize<XrplResponse>(ms)!;
+            if (response.Status == "error")
+            {
+                throw new Exception(response.Error);
+            }
+
+            return JsonSerializer.Deserialize<AccountLines>(response.Result.ToString()!);
         }
         catch (Exception ex)
         {
             await _logger.ErrorAsync($"{XummDefaults.SystemName}: Failed to retrieve account lines of {account}.", ex);
             throw;
         }
-    }
-
-    private async Task<T> SendMessageAsync<T>(Uri uri, object request, CancellationToken cancellationToken) where T : class
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        using var webSocket = new ClientWebSocket();
-        await webSocket.ConnectAsync(uri, cancellationToken);
-
-        if (webSocket.State != WebSocketState.Open)
-        {
-            return null;
-        }
-
-        await SendMessageAsync(webSocket, request);
-
-        var buffer = new ArraySegment<byte>(new byte[CHUNK_SIZE]);
-
-        await using var ms = new MemoryStream();
-
-        WebSocketReceiveResult result;
-        do
-        {
-            result = await webSocket.ReceiveAsync(buffer, cancellationToken);
-            ms.Write(buffer.Array!, buffer.Offset, result.Count);
-        } while (!result.EndOfMessage && !cancellationToken.IsCancellationRequested);
-
-        ms.Seek(0, SeekOrigin.Begin);
-
-        var response = JsonSerializer.Deserialize<XrplResponse>(ms)!;
-        if (response.Status == "error")
-        {
-            throw new Exception(response.Error);
-        }
-
-        return JsonSerializer.Deserialize<T>(response.Result.ToString()!);
     }
 
     private async Task SendMessageAsync(ClientWebSocket clientWebSocket, object request)
