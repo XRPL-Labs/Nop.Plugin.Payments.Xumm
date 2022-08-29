@@ -223,11 +223,6 @@ namespace Nop.Plugin.Payments.Xumm.Services
                         throw new NopException($"{XummDefaults.SystemName} Can't parse amount {balanceReceived.Value} of order with GUID {order.OrderGuid}.");
                     }
 
-                    if (amountToRefund > amount)
-                    {
-                        throw new NopException($"{XummDefaults.SystemName} Requested refund is higher than received amount for order with GUID {order.OrderGuid}.");
-                    }
-
                     if (string.IsNullOrEmpty(balanceReceived.CounterParty))
                     {
                         refundTransaction.SetSendMaxAmount(amountToRefund);
