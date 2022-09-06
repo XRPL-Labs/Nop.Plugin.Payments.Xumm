@@ -12,7 +12,8 @@
 ### Receive Payments
 You can select XRP or any other XRPL token as currency from a list that contains all the trust lines set in your account and curated assets of Xumm. 
 
-Customers can pay with any XRPL token while the ledger handles the conversion to your shop currency after [XUMM Issue 392](https://github.com/XRPL-Labs/XUMM-Issue-Tracker/issues/392) is implemented and released. For now the payment by the customer has to be done with the same token as the configured XRPL Currency.
+Customers can pay with any XRPL token while the ledger handles the conversion to your shop currency after [XUMM Issue 392](https://github.com/XRPL-Labs/XUMM-Issue-Tracker/issues/392) is implemented and released. 
+For now the payment by the customer has to be done with the same token as the configured XRPL Currency.
 
 ### Process Refunds
 Refunds are made possible by using the mailing system of nopCommerce because transactions on the XRPL need to be signed.
@@ -32,9 +33,8 @@ The credentials can be found inside the Xumm Developer Dashboard > Settings > Ap
 After that, please input `https://<your-store-url>/Plugins/Xumm/Webhook` as the Webhook URL in the Application details section.
 
 ## Step 2: Install the plugin in nopCommerce
-The Xumm Pay plugin is not (yet) available in the nopCommerce Marketplace so you need to create a folder `Payments.Xumm` in the nopCommerce Plugins folder and copy the contents of `src`.
-
-More details can be found in the [nopCommerce Documentation](https://docs.nopcommerce.com/en/getting-started/advanced-configuration/plugins-in-nopcommerce.html).
+The [Xumm Payment Module](https://www.nopcommerce.com/en/xumm-payment-module) can be downloaded at the nopCommerce Marketplace.
+More installation details can be found in the [nopCommerce Documentation](https://docs.nopcommerce.com/en/getting-started/advanced-configuration/plugins-in-nopcommerce.html).
 
 ## Step 3: Configuration Xumm plugin
 After installing the plugin, you can navigate to Configuration > Payment methods on the navigation menu of the admin panel.
