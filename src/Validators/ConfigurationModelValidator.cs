@@ -59,6 +59,9 @@ public class ConfigurationModelValidator : BaseNopValidator<ConfigurationModel>
         {
             RuleFor(x => x.XrplAddress).Must((x, context) =>
                 {
+                    if (string.IsNullOrEmpty(x.XrplAddress))
+                        return true;
+
                     return x.XrplAddress.IsAccountAddress();
                 })
                 .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.XrplAddress.Invalid"));

@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Web.Framework.Models;
 using Nop.Web.Framework.Mvc.ModelBinding;
+using System.Collections.Generic;
 
 namespace Nop.Plugin.Payments.Xumm.Models;
 
@@ -20,15 +20,11 @@ public record ConfigurationModel : BaseNopModel
     [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.ApiKey")]
     public string ApiKey { get; set; }
 
-    public bool ApiKey_OverrideForStore { get; set; }
-
     /// <summary>
     /// Gets or sets an API Secret
     /// </summary>
     [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.ApiSecret")]
     public string ApiSecret { get; set; }
-
-    public bool ApiSecret_OverrideForStore { get; set; }
 
     public bool ValidApiCredentials { get; set; }
 

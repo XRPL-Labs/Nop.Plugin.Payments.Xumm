@@ -1,6 +1,4 @@
-﻿using System.Globalization;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Core;
 using Nop.Plugin.Payments.Xumm.Extensions;
@@ -13,6 +11,8 @@ using Nop.Services.Security;
 using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
 using Nop.Web.Framework.Mvc.Filters;
+using System.Globalization;
+using System.Threading.Tasks;
 using XUMM.NET.SDK.Extensions;
 
 namespace Nop.Plugin.Payments.Xumm.Controllers;
@@ -88,8 +88,6 @@ public class XummConfigurationController : BasePaymentController
         {
             model.AdditionalFee_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.AdditionalFee, storeScope);
             model.AdditionalFeePercentage_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.AdditionalFeePercentage, storeScope);
-            model.ApiKey_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.ApiKey, storeScope);
-            model.ApiSecret_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.ApiSecret, storeScope);
             model.XrplAddress_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplAddress, storeScope);
             model.XrplPaymentDestinationTag_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplPaymentDestinationTag, storeScope);
             model.XrplRefundDestinationTag_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplRefundDestinationTag, storeScope);
@@ -153,7 +151,7 @@ public class XummConfigurationController : BasePaymentController
         return View("~/Plugins/Payments.Xumm/Views/Configure.cshtml", model);
     }
 
-    public async Task<IActionResult> ProcessPayloadAsync(string customIdentifier)
+    public async Task<IActionResult> ProcessPayloadAsync(int storeScope, string customIdentifier)
     {
         if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePaymentMethods))
         {
@@ -162,7 +160,7 @@ public class XummConfigurationController : BasePaymentController
 
         if (!string.IsNullOrWhiteSpace(customIdentifier))
         {
-            await _xummService.ProcessPayloadAsync(customIdentifier);
+            await _xummService.ProcessPayloadAsync(storeScope, customIdentifier);
         }
 
         return RedirectToAction("Configure");
@@ -170,7 +168,8 @@ public class XummConfigurationController : BasePaymentController
 
     public async Task<IActionResult> SetAccountWithXummAsync()
     {
-        var redirectUrl = await _xummService.GetSignInWithXummUrlAsync();
+        var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
+        var redirectUrl = await _xummService.GetSignInWithXummUrlAsync(storeScope);
         return Redirect(redirectUrl);
     }
 
@@ -178,7 +177,7 @@ public class XummConfigurationController : BasePaymentController
     {
         var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
         var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(storeScope);
-        var redirectUrl = await _xummService.GetSetTrustLineUrlAsync(settings.XrplAddress, settings.XrplIssuer, settings.XrplCurrency);
+        var redirectUrl = await _xummService.GetSetTrustLineUrlAsync(storeScope, settings.XrplAddress, settings.XrplIssuer, settings.XrplCurrency);
         return Redirect(redirectUrl);
     }
 
@@ -206,8 +205,8 @@ public class XummConfigurationController : BasePaymentController
             settings.ApiKey = model.ApiKey;
             settings.ApiSecret = model.ApiSecret;
 
-            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.ApiKey, model.ApiKey_OverrideForStore, storeScope, false);
-            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.ApiSecret, model.ApiSecret_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingAsync(settings, setting => setting.ApiKey, clearCache: false);
+            await _settingService.SaveSettingAsync(settings, setting => setting.ApiSecret, clearCache: false);
 
             return View("~/Areas/Admin/Views/Shared/RestartApplication.cshtml", Url.Action("Configure", "XummConfiguration"));
         }
@@ -217,8 +216,8 @@ public class XummConfigurationController : BasePaymentController
             settings.AdditionalFee = model.AdditionalFee;
             settings.AdditionalFeePercentage = model.AdditionalFeePercentage;
 
-            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
-            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, clearCache: false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, clearCache: false);
         }
 
         var xrpAddressChanged = settings.XrplAddress != model.XrplAddress;
@@ -253,22 +252,23 @@ public class XummConfigurationController : BasePaymentController
         }
 
         var (issuer, currency) = IssuerCurrencyExtensions.GetIssuerAndCurrency(model.XrplCurrency);
-        var currencyChanged = issuer != null && issuer != settings.XrplIssuer || currency != null && currency != settings.XrplCurrency;
-        if (currencyChanged)
+        var currencyChanged = (issuer != null && issuer != settings.XrplIssuer) || (currency != null && currency != settings.XrplCurrency);
+        var disabledCurrencyOverride = issuer == null && currency == null && storeScope > 0;
+        if (currencyChanged || disabledCurrencyOverride)
         {
             // Issuer and Currency will only be saved after a trust line has been set to prevent payment failures.
-            if (await _xummService.IsTrustLineRequiredAsync(settings.XrplAddress, issuer, currency))
+            if (!disabledCurrencyOverride && await _xummService.IsTrustLineRequiredAsync(settings.XrplAddress, issuer, currency))
             {
                 // Issuer and Currency will be saved after signing the TrustSet payload.
-                var redirectUrl = await _xummService.GetSetTrustLineUrlAsync(settings.XrplAddress, issuer, currency);
+                var redirectUrl = await _xummService.GetSetTrustLineUrlAsync(storeScope, settings.XrplAddress, issuer, currency);
                 return Redirect(redirectUrl);
             }
 
             settings.XrplIssuer = issuer;
             settings.XrplCurrency = currency;
 
-            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplIssuer, model.XrplCurrency_OverrideForStore, storeScope, false);
-            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplCurrency, model.XrplCurrency_OverrideForStore, storeScope, false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplIssuer, model.XrplCurrency_OverrideForStore, storeScope, clearCache: false);
+            await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplCurrency, model.XrplCurrency_OverrideForStore, storeScope, clearCache: false);
         }
         else if (xrpAddressChanged)
         {

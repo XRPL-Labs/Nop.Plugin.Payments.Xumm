@@ -10,13 +10,13 @@ namespace Nop.Plugin.Payments.Xumm.Services;
 public interface IXummService
 {
     Task<XummPong> GetPongAsync();
-    Task<string> GetSignInWithXummUrlAsync();
-    Task<string> GetSetTrustLineUrlAsync(string account, string issuer, string currency);
+    Task<string> GetSignInWithXummUrlAsync(int storeScope);
+    Task<string> GetSetTrustLineUrlAsync(int storeScope, string account, string issuer, string currency);
     Task<List<IssuerModel>> GetOrderedCurrenciesAsync(string xrpAddress);
     Task<(XummPayloadDetails, XummPayloadStatus)> GetPayloadDetailsAsync(string customIdentifier);
     Task<bool> IsTrustLineRequiredAsync(string xrpAddress, string issuer, string currency);
     Task<bool> IsPrimaryStoreCurrency(string currencyCode);
-    Task ProcessPayloadAsync(string xummId);
+    Task ProcessPayloadAsync(int storeScope, string xummId);
     Task<bool> HidePaymentMethodAsync();
     Task SetFallBackForMissingTrustLineAsync(XummPaymentSettings settings, int storeScope, bool clearCache = false);
     bool HasWebhookUrlConfigured(XummPong pong);
