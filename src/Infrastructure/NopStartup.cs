@@ -4,8 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Nop.Core.Infrastructure;
 using Nop.Plugin.Payments.Xumm.Services;
 using Nop.Plugin.Payments.Xumm.WebSocket;
-using XUMM.NET.SDK;
-using XUMM.NET.SDK.Extensions;
 using XUMM.NET.SDK.Webhooks;
 
 namespace Nop.Plugin.Payments.Xumm.Infrastructure;
@@ -26,21 +24,6 @@ public class NopStartup : INopStartup
         services.AddScoped<IXummService, XummService>();
         services.AddScoped<IXummOrderService, XummOrderService>();
         services.AddScoped<IXummMailService, XummMailService>();
-
-        var paymentSettings = services.BuildServiceProvider().GetRequiredService<XummPaymentSettings>();
-
-        services.AddXummNet(o =>
-        {
-            if (paymentSettings.ApiKey.IsValidUuid())
-            {
-                o.ApiKey = paymentSettings.ApiKey;
-            }
-
-            if (paymentSettings.ApiSecret.IsValidUuid())
-            {
-                o.ApiSecret = paymentSettings.ApiSecret;
-            }
-        });
 
         services.AddXummWebhooks<XummWebhookProcessor>();
     }

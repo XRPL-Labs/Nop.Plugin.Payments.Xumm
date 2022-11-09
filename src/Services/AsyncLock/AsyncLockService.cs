@@ -7,7 +7,7 @@ namespace Nop.Plugin.Payments.Xumm.Services.AsyncLock;
 
 internal sealed class AsyncLockService
 {
-    private static readonly Dictionary<object, AsyncLockRefCount<SemaphoreSlim>> _semaphoreSlims = new();
+    private static readonly Dictionary<object, AsyncLockRefCount<SemaphoreSlim>> SemaphoreSlims = new();
 
     internal async Task<IDisposable> LockAsync(object key)
     {
@@ -18,14 +18,16 @@ internal sealed class AsyncLockService
     private static SemaphoreSlim GetOrCreate(object key)
     {
         AsyncLockRefCount<SemaphoreSlim> item;
-        lock (_semaphoreSlims)
+        lock (SemaphoreSlims)
         {
-            if (_semaphoreSlims.TryGetValue(key, out item))
+            if (SemaphoreSlims.TryGetValue(key, out item))
+            {
                 ++item.RefCount;
+            }
             else
             {
                 item = new AsyncLockRefCount<SemaphoreSlim>(new SemaphoreSlim(1, 1));
-                _semaphoreSlims[key] = item;
+                SemaphoreSlims[key] = item;
             }
         }
 
@@ -34,18 +36,18 @@ internal sealed class AsyncLockService
 
     private sealed class AsyncLockReleaser : IDisposable
     {
-        public object Key { get; set; }
+        public object Key { get; init; }
 
         public void Dispose()
         {
             AsyncLockRefCount<SemaphoreSlim> item;
-            lock (_semaphoreSlims)
+            lock (SemaphoreSlims)
             {
-                item = _semaphoreSlims[Key];
+                item = SemaphoreSlims[Key];
                 --item.RefCount;
                 if (item.RefCount == 0)
                 {
-                    _semaphoreSlims.Remove(Key);
+                    SemaphoreSlims.Remove(Key);
                 }
             }
             item.Value.Release();

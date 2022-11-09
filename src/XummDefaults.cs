@@ -9,11 +9,6 @@ namespace Nop.Plugin.Payments.Xumm;
 public static class XummDefaults
 {
     /// <summary>
-    /// Gets a name of the view component to display payment info in public store
-    /// </summary>
-    public const string PAYMENT_INFO_VIEW_COMPONENT_NAME = "XummPaymentInfo";
-
-    /// <summary>
     /// Gets the system name of the plugin
     /// </summary>
     public static string SystemName => "Payments.Xumm";
@@ -84,7 +79,7 @@ public static class XummDefaults
         /// The rippled server summarizes transaction results with result codes, which appear in  meta.TransactionResult.
         /// <seealso href="https://xrpl.org/transaction-results.html"/>
         /// </summary>
-        public static string SuccesTransactionResultPrefix => "tes";
+        public static string SuccessTransactionResultPrefix => "tes";
 
         /// <summary>
         /// Enable pathfinding so the user can select the asset to send to deliver the requested asset amount.
@@ -95,7 +90,7 @@ public static class XummDefaults
     public static class Mail
     {
         /// <summary>
-        /// Gets the systemname of the refund email template
+        /// Gets the system name of the refund email template
         /// </summary>
         public static string RefundEmailTemplateSystemName => $"{SystemName}.RefundMessage";
     }
@@ -109,6 +104,11 @@ public static class XummDefaults
         /// Gets the route name
         /// </summary>
         public static string RouteName => $"{FullSystemName}.WebHook.Handle";
+
+        /// <summary>
+        /// Gets the route name
+        /// </summary>
+        public static string Pattern => "Plugins/Xumm/Webhook";
 
         /// <summary>
         /// Allowing any Webhook URL should be enabled for testing purposes only.

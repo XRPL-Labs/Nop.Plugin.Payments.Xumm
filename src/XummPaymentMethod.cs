@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Nop.Core;
 using Nop.Core.Domain.Cms;
 using Nop.Core.Domain.Messages;
 using Nop.Core.Domain.Orders;
@@ -34,6 +35,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     private readonly IOrderProcessingService _orderProcessingService;
     private readonly IOrderTotalCalculationService _orderTotalCalculationService;
     private readonly ISettingService _settingService;
+    private readonly IStoreContext _storeContext;
     private readonly IUrlHelperFactory _urlHelperFactory;
     private readonly IXummOrderService _xummPaymentService;
     private readonly IXummService _xummService;
@@ -54,6 +56,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         IOrderProcessingService orderProcessingService,
         IOrderTotalCalculationService orderTotalCalculationService,
         ISettingService settingService,
+        IStoreContext storeContext,
         IUrlHelperFactory urlHelperFactory,
         IXummService xummService,
         IXummOrderService xummPaymentService,
@@ -70,6 +73,7 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         _orderProcessingService = orderProcessingService;
         _orderTotalCalculationService = orderTotalCalculationService;
         _settingService = settingService;
+        _storeContext = storeContext;
         _urlHelperFactory = urlHelperFactory;
         _widgetSettings = widgetSettings;
         _xummPaymentService = xummPaymentService;
@@ -114,7 +118,8 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
     /// </returns>
     public async Task<bool> HidePaymentMethodAsync(IList<ShoppingCartItem> cart)
     {
-        return await _xummService.HidePaymentMethodAsync();
+        var store = await _storeContext.GetCurrentStoreAsync();
+        return await _xummService.HidePaymentMethodAsync(store.Id);
     }
 
     /// <summary>

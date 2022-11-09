@@ -8,12 +8,17 @@ internal static class OrderExtensions
 {
     internal static string GetCustomIdentifier(this Order order, XummPayloadType payloadType, int count)
     {
-        return $"{order.OrderGuid.ToString().Replace("-", string.Empty)}-{(int)payloadType}-{count}";
+        return $"{order.OrderGuid:N}-{(int)payloadType}-{count}";
     }
 
     internal static (Guid orderGuid, XummPayloadType payloadType, int count) ParseCustomIdentifier(string customIdentifier)
     {
-        var countIndex = customIdentifier?.LastIndexOf('-') ?? -1;
+        if (customIdentifier == null)
+        {
+            return (default, default, default);
+        }
+
+        var countIndex = customIdentifier.LastIndexOf('-');
         var typeIndex = countIndex != -1 ? customIdentifier.LastIndexOf('-', countIndex - 1) : -1;
         if (countIndex == -1 || typeIndex == -1)
         {

@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Threading.Tasks;
 using FluentValidation;
+using Nop.Core;
 using Nop.Plugin.Payments.Xumm.Models;
 using Nop.Plugin.Payments.Xumm.Services;
 using Nop.Services.Localization;
@@ -17,33 +18,41 @@ public class ConfigurationModelValidator : BaseNopValidator<ConfigurationModel>
 {
     #region Fields
 
+    private readonly IStoreContext _storeContext;
     private readonly IXummService _xummService;
 
     #endregion
 
     #region Ctor
 
-    public ConfigurationModelValidator(ILocalizationService localizationService, IXummService xummService)
+    public ConfigurationModelValidator(ILocalizationService localizationService, IStoreContext storeContext, IXummService xummService)
     {
+        _storeContext = storeContext;
         _xummService = xummService;
 
         // API Settings section
-        RuleFor(model => model.ApiKey)
-            .NotEmpty()
-            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.ApiKey.Required"));
+        WhenAsync(async (x, ct) => await AllStoresSelectedAsync(), () =>
+        {
+            // Validating API credentials can't be done for specific stores to be able to remove custom values.
+            // Unchecking the custom value results in null meaning that we fallback on the all stores configuration.
+
+            RuleFor(model => model.ApiKey)
+                .NotEmpty()
+                .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.ApiKey.Required"));
+
+            RuleFor(model => model.ApiSecret)
+                .NotEmpty()
+                .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.ApiSecret.Required"));
+        });
 
         RuleFor(x => x.ApiKey).Must((x, context) =>
-            {
-                if (string.IsNullOrEmpty(x.ApiKey))
-                    return true;
+        {
+            if (string.IsNullOrEmpty(x.ApiKey))
+                return true;
 
-                return Guid.TryParse(x.ApiKey, out _);
-            })
-           .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.ApiKey.Invalid"));
-
-        RuleFor(model => model.ApiSecret)
-            .NotEmpty()
-            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.ApiSecret.Required"));
+            return Guid.TryParse(x.ApiKey, out _);
+        })
+       .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.ApiKey.Invalid"));
 
         RuleFor(x => x.ApiSecret).Must((x, context) =>
             {
@@ -91,10 +100,16 @@ public class ConfigurationModelValidator : BaseNopValidator<ConfigurationModel>
             .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.AdditionalFee.ShouldBeGreaterThanOrEqualZero"));
     }
 
+    private async Task<bool> AllStoresSelectedAsync()
+    {
+        var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
+        return storeScope == 0;
+    }
 
     private async Task<bool> ValidApiCredentialsAsync()
     {
-        var pong = await _xummService.GetPongAsync();
+        var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
+        var pong = await _xummService.GetPongAsync(storeScope);
         return pong?.Pong ?? false;
     }
     #endregion

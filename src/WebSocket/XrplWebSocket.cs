@@ -1,7 +1,4 @@
-﻿using Nop.Plugin.Payments.Xumm.WebSocket.Enums;
-using Nop.Plugin.Payments.Xumm.WebSocket.Models;
-using Nop.Services.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
@@ -9,6 +6,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Nop.Plugin.Payments.Xumm.WebSocket.Enums;
+using Nop.Plugin.Payments.Xumm.WebSocket.Models;
+using Nop.Services.Logging;
 using XUMM.NET.SDK.Extensions;
 using XUMM.NET.SDK.Models.Payload.XRPL;
 
