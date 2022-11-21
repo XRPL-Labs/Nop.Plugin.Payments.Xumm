@@ -88,12 +88,12 @@
                 {
                     <div class="form-group row" id="xrplcurrency">
                         <div class="col-md-3">
-                            <nop-override-store-checkbox asp-for="XrplCurrency_OverrideForStore" asp-input="XrplCurrency" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
-                            <nop-label asp-for="XrplCurrency" asp-required="true" />
+                            <nop-override-store-checkbox asp-for="XrplCurrencyAndIssuer_OverrideForStore" asp-input="XrplCurrencyAndIssuer" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                            <nop-label asp-for="XrplCurrencyAndIssuer" asp-required="true" />
                         </div>
                         <div class="col-md-6">
-                            <nop-select asp-for="XrplCurrency" asp-items="Model.XrplCurrencies" asp-required="true" class='@(!Model.TrustSetRequired && !Model.ShopCurrencyRequired ? "" : "is-invalid" )' />
-                            <span asp-validation-for="XrplCurrency"></span>
+                            <nop-select asp-for="XrplCurrencyAndIssuer" asp-items="Model.XrplCurrencies" asp-required="true" class='@(!Model.TrustSetRequired && !Model.ShopCurrencyRequired ? "" : "is-invalid" )' />
+                            <span asp-validation-for="XrplCurrencyAndIssuer"></span>
                         </div>
                         <div class="col-md-3">
                             @if (Model.TrustSetRequired)

@@ -72,9 +72,9 @@ public record ConfigurationModel : BaseNopModel
     /// Gets or sets an XRPL Currency
     /// </summary>
     [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.XrplCurrency")]
-    public string XrplCurrency { get; set; }
+    public string XrplCurrencyAndIssuer { get; set; }
 
-    public bool XrplCurrency_OverrideForStore { get; set; }
+    public bool XrplCurrencyAndIssuer_OverrideForStore { get; set; }
 
     public IList<SelectListItem> XrplCurrencies { get; set; } = new List<SelectListItem>();
 
