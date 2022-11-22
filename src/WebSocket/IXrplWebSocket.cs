@@ -8,5 +8,5 @@ namespace Nop.Plugin.Payments.Xumm.WebSocket;
 public interface IXrplWebSocket
 {
     Task<List<AccountTrustLine>> GetAccountTrustLines(string account, bool throwError = false);
-    Task<(decimal?,XrplPaymentPathSpecification[][]?)> GetDestinationAmountAndPathsAsync(PathFindCreateRequest pathFindRequest, bool hasCounterParty);
+    Task<(decimal?, XrplPaymentPathSpecification[][]?)> GetDestinationAmountAndPathsAsync(PathFindCreateRequest pathFindRequest, bool hasCounterParty);
 }

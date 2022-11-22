@@ -7,12 +7,7 @@ internal static class IssuerCurrencyExtensions
 {
     internal static string GetFormattedCurrency(this string currency)
     {
-        if (currency == XummDefaults.XRPL.XRP)
-        {
-            return currency;
-        }
-
-        return currency.ToFormattedCurrency();
+        return currency == XummDefaults.XRPL.XRP ? currency : currency.ToFormattedCurrency();
     }
 
     internal static string GetCurrencyIdentifier(string issuer, string currency)
@@ -35,7 +30,7 @@ internal static class IssuerCurrencyExtensions
         var split = identifier.Split('-', StringSplitOptions.RemoveEmptyEntries);
         if (split.Length != 2)
         {
-            throw new ArgumentException("Identifier {identifier} doesn't contain a valid account and currency code.");
+            throw new ArgumentException($"Identifier '{identifier}' doesn't contain a valid account and currency code.");
         }
 
         return (split[0], split[1]);

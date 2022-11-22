@@ -9,5 +9,5 @@ internal sealed class AsyncLockRefCount<T>
     }
 
     public int RefCount { get; set; }
-    public T Value { get; private set; }
+    public T Value { get; }
 }

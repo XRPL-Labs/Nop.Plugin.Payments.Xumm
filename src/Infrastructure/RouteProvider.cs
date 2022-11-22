@@ -25,7 +25,7 @@ public class RouteProvider : IRouteProvider
                 area = AreaNames.Admin
             });
 
-        endpointRouteBuilder.MapControllerRoute(XummDefaults.ProcessPayloadRouteName, "Plugins/Xumm/ProcessPayload/{storeScope}/{customIdentifier}",
+        endpointRouteBuilder.MapControllerRoute(XummDefaults.ProcessPayloadRouteName, "Plugins/Xumm/ProcessPayload/{storeId}/{customIdentifier}",
             new
             {
                 controller = "XummConfiguration",
@@ -54,7 +54,7 @@ public class RouteProvider : IRouteProvider
                 action = "ProcessRefund"
             });
 
-        endpointRouteBuilder.MapXummControllerRoute(XummDefaults.WebHooks.RouteName, "Plugins/Xumm/Webhook");
+        endpointRouteBuilder.MapXummControllerRoute(XummDefaults.WebHooks.RouteName, XummDefaults.WebHooks.Pattern);
     }
 
     /// <summary>

@@ -50,8 +50,8 @@
   </ItemGroup>
 
   <ItemGroup>
-	  <PackageReference Include="XUMM.NET.SDK" Version="1.6.6" />
-	  <PackageReference Include="XUMM.NET.SDK.Webhooks" Version="1.6.6" />
+    <PackageReference Include="XUMM.NET.SDK" Version="1.7.1" />
+    <PackageReference Include="XUMM.NET.SDK.Webhooks" Version="1.7.1" />
   </ItemGroup>
 
   <!-- This target execute after "Build" target -->

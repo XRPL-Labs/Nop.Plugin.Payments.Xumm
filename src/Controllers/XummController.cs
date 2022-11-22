@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.Xumm.Services;
 using Nop.Services.Logging;
-using Nop.Services.Payments;
 using Nop.Services.Security;
 using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;

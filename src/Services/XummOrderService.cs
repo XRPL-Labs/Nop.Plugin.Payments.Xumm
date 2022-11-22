@@ -1,4 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc.Infrastructure;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Nop.Core;
 using Nop.Core.Caching;
@@ -10,15 +14,11 @@ using Nop.Plugin.Payments.Xumm.Services.AsyncLock;
 using Nop.Plugin.Payments.Xumm.WebSocket;
 using Nop.Plugin.Payments.Xumm.WebSocket.Models;
 using Nop.Services.Common;
+using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using XUMM.NET.SDK.Clients.Interfaces;
 using XUMM.NET.SDK.Enums;
 using XUMM.NET.SDK.Extensions;
 using XUMM.NET.SDK.Models.Misc;
@@ -39,14 +39,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
         private readonly IOrderProcessingService _orderProcessingService;
         private readonly IOrderService _orderService;
         private readonly IPaymentPluginManager _paymentPluginManager;
+        private readonly ISettingService _settingService;
         private readonly IStaticCacheManager _staticCacheManager;
         private readonly IUrlHelperFactory _urlHelperFactory;
-        private readonly IXummMiscClient _xummMiscClient;
         private readonly IXummMailService _xummMailService;
         private readonly IXrplWebSocket _xrplWebSocket;
-        private readonly IXummPayloadClient _xummPayloadClient;
         private readonly IXummService _xummService;
-        private readonly XummPaymentSettings _xummPaymentSettings;
         private readonly ILogger _logger;
 
         #endregion
@@ -60,14 +58,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
             IOrderProcessingService orderProcessingService,
             IOrderService orderService,
             IPaymentPluginManager paymentPluginManager,
+            ISettingService settingService,
             IStaticCacheManager staticCacheManager,
             IUrlHelperFactory urlHelperFactory,
-            IXummPayloadClient xummPayloadClient,
             IXummService xummService,
-            IXummMiscClient xummMiscClient,
             IXummMailService xummMailService,
             IXrplWebSocket xrplWebSocket,
-            XummPaymentSettings xummPaymentSettings,
             ILogger logger)
         {
             _actionContextAccessor = actionContextAccessor;
@@ -76,14 +72,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
             _orderProcessingService = orderProcessingService;
             _orderService = orderService;
             _paymentPluginManager = paymentPluginManager;
+            _settingService = settingService;
             _staticCacheManager = staticCacheManager;
             _urlHelperFactory = urlHelperFactory;
-            _xummPayloadClient = xummPayloadClient;
             _xummService = xummService;
-            _xummMiscClient = xummMiscClient;
             _xummMailService = xummMailService;
             _xrplWebSocket = xrplWebSocket;
-            _xummPaymentSettings = xummPaymentSettings;
             _logger = logger;
         }
 
@@ -95,14 +89,16 @@ namespace Nop.Plugin.Payments.Xumm.Services
         {
             try
             {
-                var paymentTransaction = new XrplPaymentTransaction(_xummPaymentSettings.XrplAddress, _xummPaymentSettings.XrplPaymentDestinationTag, XummDefaults.XRPL.Fee);
-                if (_xummPaymentSettings.XrplCurrency == XummDefaults.XRPL.XRP)
+                var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(postProcessPaymentRequest.Order.StoreId);
+
+                var paymentTransaction = new XrplPaymentTransaction(settings.XrplAddress, settings.XrplPaymentDestinationTag, XummDefaults.XRPL.Fee);
+                if (settings.XrplCurrency == XummDefaults.XRPL.XRP)
                 {
                     paymentTransaction.SetAmount(postProcessPaymentRequest.Order.OrderTotal);
                 }
                 else
                 {
-                    paymentTransaction.SetAmount(_xummPaymentSettings.XrplCurrency, postProcessPaymentRequest.Order.OrderTotal, _xummPaymentSettings.XrplIssuer);
+                    paymentTransaction.SetAmount(settings.XrplCurrency, postProcessPaymentRequest.Order.OrderTotal, settings.XrplIssuer);
                 }
 
                 var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.PaymentProcessorRouteName, new { orderGuid = postProcessPaymentRequest.Order.OrderGuid });
@@ -125,8 +121,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     Identifier = postProcessPaymentRequest.Order.GetCustomIdentifier(XummPayloadType.Payment, attempt)
                 };
 
-                var result = await _xummPayloadClient.CreateAsync(payload, true);
-                return result.Next.Always;
+                var result = await (await _xummService.GetXummSdk(postProcessPaymentRequest.Order.StoreId)).Payload.CreateAsync(payload, true);
+                return result!.Next.Always;
             }
             catch (Exception ex)
             {
@@ -139,12 +135,12 @@ namespace Nop.Plugin.Payments.Xumm.Services
         {
             var attempt = await GetOrderPayloadCountAsync(order, XummPayloadType.Payment, false);
             XummTransaction paymentTransaction = null;
-
             XummPayloadDetails paymentPayload;
+
             do
             {
                 var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Payment, attempt);
-                (paymentPayload, var paymentPayloadStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
+                (paymentPayload, var paymentPayloadStatus) = await _xummService.GetPayloadDetailsAsync(order.StoreId, customIdentifier);
 
                 if (paymentPayloadStatus == XummPayloadStatus.Signed || paymentPayloadStatus == XummPayloadStatus.ExpiredSigned)
                 {
@@ -183,14 +179,16 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     throw new NopException($"{XummDefaults.SystemName} Order with {order.OrderGuid} has no signed payload.");
                 }
 
-                var refundTransaction = new XrplPaymentTransaction(paymentPayload.Response.Account, _xummPaymentSettings.XrplRefundDestinationTag, XummDefaults.XRPL.Fee)
+                var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(order.StoreId);
+
+                var refundTransaction = new XrplPaymentTransaction(paymentPayload.Response.Account, settings.XrplRefundDestinationTag, XummDefaults.XRPL.Fee)
                 {
                     Flags = XrplPaymentFlags.tfNoDirectRipple
                 };
 
                 var pathFindRequest = new PathFindCreateRequest
                 {
-                    SourceAccount = _xummPaymentSettings.XrplAddress,
+                    SourceAccount = settings.XrplAddress,
                     DestinationAccount = paymentPayload.Response.Account
                 };
 
@@ -257,7 +255,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 refundTransaction.Paths = paths;
 
                 var count = await GetOrderPayloadCountAsync(order, XummPayloadType.Refund, true);
-                var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.RefundProcessorRouteName, new { orderGuid = order.OrderGuid, count = count });
+                var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.RefundProcessorRouteName, new { orderGuid = order.OrderGuid, count });
 
                 var refundPayload = refundTransaction.ToXummPostJsonPayload();
                 refundPayload.Options = new XummPayloadOptions
@@ -274,7 +272,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     Identifier = order.GetCustomIdentifier(XummPayloadType.Refund, count)
                 };
 
-                var result = await _xummPayloadClient.CreateAsync(refundPayload, true);
+                var result = await (await _xummService.GetXummSdk(order.StoreId)).Payload.CreateAsync(refundPayload, true);
                 return result.Next.Always;
             }
             catch (Exception ex)
@@ -310,7 +308,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     }
 
                     var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Payment, attempt);
-                    var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
+                    var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(order.StoreId, customIdentifier);
                     if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
                     {
                         throw new NopException($"{XummDefaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
@@ -358,10 +356,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                         throw new NopException($"{XummDefaults.SystemName} Order with {orderGuid} can't be found.");
                     }
 
-                    if (!count.HasValue)
-                    {
-                        count = await GetOrderPayloadCountAsync(order, XummPayloadType.Refund, false);
-                    }
+                    count ??= await GetOrderPayloadCountAsync(order, XummPayloadType.Refund, false);
 
                     if (await HasProcessedOrderPayloadAsync(order, XummPayloadType.Refund, count.Value))
                     {
@@ -369,7 +364,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
                     }
 
                     var customIdentifier = order.GetCustomIdentifier(XummPayloadType.Refund, count.Value);
-                    var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(customIdentifier);
+                    var (payload, paymentStatus) = await _xummService.GetPayloadDetailsAsync(order.StoreId, customIdentifier);
                     if (paymentStatus != XummPayloadStatus.NotFound && !payload.Payload.TxType.Equals(nameof(XrplTransactionType.Payment)))
                     {
                         throw new NopException($"{XummDefaults.SystemName} Payload ({customIdentifier}) of order with {orderGuid} has {payload.Payload.TxType} as transaction type.");
@@ -474,7 +469,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
         private async Task<(bool success, XummTransaction transaction)> HasSuccesTransactionAsync(Order order, XummPayloadType xummPayloadType, string transactionHash, bool insertNote)
         {
-            var transaction = await _xummMiscClient.GetTransactionAsync(transactionHash);
+            var transaction = await (await _xummService.GetXummSdk(order.StoreId)).Miscellaneous.GetTransactionAsync(transactionHash);
             if (transaction == null)
             {
                 await InsertOrderNoteAsync(order, $"Unable to fetch transaction with hash \"{transactionHash}\".");
@@ -488,7 +483,7 @@ namespace Nop.Plugin.Payments.Xumm.Services
             }
 
             var result = transactionResult.GetString();
-            var success = result.StartsWith(XummDefaults.XRPL.SuccesTransactionResultPrefix);
+            var success = result.StartsWith(XummDefaults.XRPL.SuccessTransactionResultPrefix);
 
             if (insertNote)
             {
