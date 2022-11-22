@@ -59,6 +59,7 @@ public class XummWebhookProcessor : IXummWebhookProcessor
         catch (Exception ex)
         {
             await _logger.ErrorAsync($"{XummDefaults.SystemName}: {ex.Message}", ex);
+            throw;
         }
     }
 

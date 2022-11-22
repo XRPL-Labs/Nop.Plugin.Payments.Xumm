@@ -74,13 +74,13 @@ public class XummConfigurationController : BasePaymentController
             AdditionalFeePercentage = settings.AdditionalFeePercentage,
             ApiKey = settings.ApiKey,
             ApiSecret = settings.ApiSecret,
-            WebhookUrl = await _xummService.GetWebhookUrlAsync(storeScope),
             XrplAddress = settings.XrplAddress,
             XrplPaymentDestinationTag = settings.XrplPaymentDestinationTag?.ToString(),
             XrplRefundDestinationTag = settings.XrplRefundDestinationTag?.ToString(),
             XrplCurrencyAndIssuer = IssuerCurrencyExtensions.GetCurrencyIdentifier(settings.XrplIssuer, settings.XrplCurrency),
             ValidXrplAddress = settings.XrplAddress.IsAccountAddress(),
             ValidApiCredentials = pong?.Pong ?? false,
+            WebhookUrl = await _xummService.GetWebhookUrlAsync(storeScope),
             HasWebhookUrlConfigured = await _xummService.HasWebhookUrlConfiguredAsync(storeScope, pong)
         };
 
