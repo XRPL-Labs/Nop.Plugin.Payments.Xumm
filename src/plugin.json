@@ -2,7 +2,7 @@
   "Group": "Payment methods",
   "FriendlyName": "Xumm",
   "SystemName": "Payments.Xumm",
-  "Version": "1.0",
+  "Version": "1.2",
   "SupportedVersions": [ "4.50" ],
   "Author": "Dominique Blomsma",
   "DisplayOrder": 1,
