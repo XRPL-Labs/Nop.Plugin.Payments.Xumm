@@ -45,6 +45,11 @@ public class XummPaymentSettings : ISettings
     public string XrplIssuer { get; set; }
 
     /// <summary>
+    /// Pay with any token available on the XRPL with pathfinding enabled
+    /// </summary>
+    public bool XrplPathfinding { get; set; }
+
+    /// <summary>
     /// Gets or sets a additional fee
     /// </summary>
     public decimal AdditionalFee { get; set; }

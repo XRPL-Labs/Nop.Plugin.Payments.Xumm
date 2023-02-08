@@ -76,6 +76,14 @@ public record ConfigurationModel : BaseNopModel
 
     public bool XrplCurrencyAndIssuer_OverrideForStore { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether to allow pathfinding on the XRPL
+    /// </summary>
+    [NopResourceDisplayName("Plugins.Payments.Xumm.Fields.XrplPathfinding")]
+    public bool XrplPathfinding { get; set; }
+
+    public bool XrplPathfinding_OverrideForStore { get; set; }
+
     public IList<SelectListItem> XrplCurrencies { get; set; } = new List<SelectListItem>();
 
     public bool TrustSetRequired { get; set; }

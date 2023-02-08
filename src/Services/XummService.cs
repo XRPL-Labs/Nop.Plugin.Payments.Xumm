@@ -355,9 +355,11 @@ public class XummService : IXummService
         {
             ReturnUrl = new XummPayloadReturnUrl
             {
-                Web = returnUrl
+                Web = returnUrl,
+                App = returnUrl
             }
         };
+
         payload.CustomMeta = new XummPayloadCustomMeta
         {
             Instruction = instruction,

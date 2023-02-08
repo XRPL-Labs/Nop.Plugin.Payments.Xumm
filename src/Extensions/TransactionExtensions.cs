@@ -7,6 +7,22 @@ namespace Nop.Plugin.Payments.Xumm.Extensions;
 
 internal static class TransactionExtensions
 {
+    internal static bool IsEqualTo(this XummTransactionBalanceChanges value1, XummTransactionBalanceChanges value2)
+    {
+        if (string.IsNullOrWhiteSpace(value1.CounterParty) && string.IsNullOrWhiteSpace(value2.CounterParty))
+        {
+            // XRP
+            return true;
+        }
+        
+        if (!value1.CounterParty?.Equals(value2.CounterParty) ?? false)
+        {
+            return false;
+        }
+
+        return value1.Currency.Equals(value2.Currency);
+    }
+
     internal static List<XummTransactionBalanceChanges> GetReceivedBalanceChanges(this XummTransaction xummTransaction, string account)
     {
         return xummTransaction.GetBalanceChanges(account, false);
