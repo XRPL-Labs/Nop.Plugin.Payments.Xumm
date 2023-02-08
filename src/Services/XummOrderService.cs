@@ -108,10 +108,11 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                 payload.Options = new XummPayloadOptions
                 {
-                    Pathfinding = XummDefaults.XRPL.PathfindingEnabled,
+                    Pathfinding = settings.XrplPathfinding,
                     ReturnUrl = new XummPayloadReturnUrl
                     {
-                        Web = returnUrl
+                        Web = returnUrl,
+                        App = returnUrl
                     }
                 };
 
@@ -178,34 +179,13 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 {
                     throw new NopException($"{XummDefaults.SystemName} Order with {order.OrderGuid} has no signed payload.");
                 }
-
-                var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(order.StoreId);
-
-                var refundTransaction = new XrplPaymentTransaction(paymentPayload.Response.Account, settings.XrplRefundDestinationTag, XummDefaults.XRPL.Fee)
-                {
-                    Flags = XrplPaymentFlags.tfNoDirectRipple
-                };
-
-                var pathFindRequest = new PathFindCreateRequest
-                {
-                    SourceAccount = settings.XrplAddress,
-                    DestinationAccount = paymentPayload.Response.Account
-                };
-
+              
                 XummTransactionBalanceChanges balanceUsed;
+                XummTransactionBalanceChanges balanceReceived;
 
                 try
                 {
                     balanceUsed = paymentTransaction.GetDeductedBalanceChanges(paymentPayload.Response.Account).First();
-
-                    if (string.IsNullOrEmpty(balanceUsed.CounterParty))
-                    {
-                        pathFindRequest.SetDestinationToXrp();
-                    }
-                    else
-                    {
-                        pathFindRequest.SetDestinationAmountToCounterParty(balanceUsed.Currency, balanceUsed.CounterParty);
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -214,11 +194,34 @@ namespace Nop.Plugin.Payments.Xumm.Services
 
                 try
                 {
-                    var balanceReceived = paymentTransaction.GetReceivedBalanceChanges(paymentPayload.Meta.Destination).First();
+                    balanceReceived = paymentTransaction.GetReceivedBalanceChanges(paymentPayload.Meta.Destination).First();
+                }
+                catch (Exception ex)
+                {
+                    throw new NopException($"{XummDefaults.SystemName} Failed to get received balance for order with GUID {order.OrderGuid}.", ex);
+                }
 
-                    if (!decimal.TryParse(balanceReceived.Value, out var amount))
+                var settings = await _settingService.LoadSettingAsync<XummPaymentSettings>(order.StoreId);
+
+                var refundTransaction = new XrplPaymentTransaction(paymentPayload.Response.Account, settings.XrplRefundDestinationTag, XummDefaults.XRPL.Fee);
+
+                if (!balanceUsed.IsEqualTo(balanceReceived))
+                {
+                    refundTransaction.Flags = XrplPaymentFlags.tfNoDirectRipple;
+
+                    var pathFindRequest = new PathFindCreateRequest
                     {
-                        throw new NopException($"{XummDefaults.SystemName} Can't parse amount {balanceReceived.Value} of order with GUID {order.OrderGuid}.");
+                        SourceAccount = settings.XrplAddress,
+                        DestinationAccount = paymentPayload.Response.Account
+                    };
+
+                    if (string.IsNullOrEmpty(balanceUsed.CounterParty))
+                    {
+                        pathFindRequest.SetDestinationToXrp();
+                    }
+                    else
+                    {
+                        pathFindRequest.SetDestinationAmountToCounterParty(balanceUsed.Currency, balanceUsed.CounterParty);
                     }
 
                     if (string.IsNullOrEmpty(balanceReceived.CounterParty))
@@ -231,28 +234,35 @@ namespace Nop.Plugin.Payments.Xumm.Services
                         refundTransaction.SetSendMaxAmount(balanceReceived.Currency, amountToRefund, balanceReceived.CounterParty);
                         pathFindRequest.SetSendMaxAmount(balanceReceived.Currency, amountToRefund, balanceReceived.CounterParty);
                     }
-                }
-                catch (Exception ex)
-                {
-                    throw new NopException($"{XummDefaults.SystemName} Failed to get received balance for order with GUID {order.OrderGuid}.", ex);
-                }
 
-                var (destinationAmount, paths) = await _xrplWebSocket.GetDestinationAmountAndPathsAsync(pathFindRequest, !string.IsNullOrEmpty(balanceUsed.CounterParty));
-                if (!destinationAmount.HasValue || paths == null)
-                {
-                    throw new NopException($"{XummDefaults.SystemName} Unable to find path to refund order with GUID {order.OrderGuid}.");
-                }
+                    var (destinationAmount, paths) = await _xrplWebSocket.GetDestinationAmountAndPathsAsync(pathFindRequest, !string.IsNullOrEmpty(balanceUsed.CounterParty));
+                    if (!destinationAmount.HasValue || paths == null)
+                    {
+                        throw new NopException($"{XummDefaults.SystemName} Unable to find path to refund order with GUID {order.OrderGuid}.");
+                    }
 
-                if (string.IsNullOrEmpty(balanceUsed.CounterParty))
-                {
-                    refundTransaction.SetAmount(destinationAmount.Value);
+                    if (string.IsNullOrEmpty(balanceUsed.CounterParty))
+                    {
+                        refundTransaction.SetAmount(destinationAmount.Value);
+                    }
+                    else
+                    {
+                        refundTransaction.SetAmount(balanceUsed.Currency, destinationAmount.Value, balanceUsed.CounterParty);
+                    }
+
+                    refundTransaction.Paths = paths;
                 }
                 else
                 {
-                    refundTransaction.SetAmount(balanceUsed.Currency, destinationAmount.Value, balanceUsed.CounterParty);
+                    if (string.IsNullOrEmpty(balanceUsed.CounterParty))
+                    {
+                        refundTransaction.SetAmount(amountToRefund);
+                    }
+                    else
+                    {
+                        refundTransaction.SetAmount(balanceUsed.Currency, amountToRefund, balanceUsed.CounterParty);
+                    }
                 }
-
-                refundTransaction.Paths = paths;
 
                 var count = await GetOrderPayloadCountAsync(order, XummPayloadType.Refund, true);
                 var returnUrl = _urlHelperFactory.GetUrlHelper(_actionContextAccessor.ActionContext).Link(XummDefaults.RefundProcessorRouteName, new { orderGuid = order.OrderGuid, count });
@@ -262,7 +272,8 @@ namespace Nop.Plugin.Payments.Xumm.Services
                 {
                     ReturnUrl = new XummPayloadReturnUrl
                     {
-                        Web = returnUrl
+                        Web = returnUrl,
+                        App = returnUrl
                     }
                 };
 
