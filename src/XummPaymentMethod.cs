@@ -360,6 +360,8 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.TrustLineHeader"] = "Others",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.TrustLineSet"] = "Trust line for currency {0} of issuer {1} has been set.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.MissingPrimaryStoreCurrency"] = "Store currency {0} has to exist and set as Primary Store Currency at Configuration > Currencies.",
+            ["Plugins.Payments.Xumm.Fields.XrplPathfinding"] = "Pathfinding",
+            ["Plugins.Payments.Xumm.Fields.XrplPathfinding.Hint"] = "Enable pathfinding to allow payments of any token on the XRPL and still receive your configured currency.",
             ["Plugins.Payments.Xumm.Fields.AdditionalFee"] = "Additional fee",
             ["Plugins.Payments.Xumm.Fields.AdditionalFee.Hint"] = "Enter additional fee to charge your customers.",
             ["Plugins.Payments.Xumm.Fields.AdditionalFee.ShouldBeGreaterThanOrEqualZero"] = "The additional fee should be greater than or equal 0",
