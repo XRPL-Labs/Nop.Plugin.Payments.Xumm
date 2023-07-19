@@ -54,6 +54,11 @@ public static class XummDefaults
     public static string OrderPayloadCountProcessedAttributeName => "XummOrder{0}PayloadCountProcessed";
 
     /// <summary>
+    /// Filter curated assets that are not in the shortlist
+    /// </summary>
+    public static bool ShowCuratedAssetsInShortlistOnly => true;
+
+    /// <summary>
     /// Gets the <see cref="CacheKey"/> for the list of valid amounts to refund per order
     /// </summary>
     public static CacheKey RefundCacheKey => new($"{FullSystemName}-{{0}}", FullSystemName);
