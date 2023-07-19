@@ -127,6 +127,11 @@ public class XummService : IXummService
         {
             foreach (var currency in curatedAsset.Value.Currencies.Values)
             {
+                if (XummDefaults.ShowCuratedAssetsInShortlistOnly && currency.Shortlist != 1)
+                {
+                    continue;
+                }
+
                 if (!issuers.TryGetValue(curatedAsset.Key, out var issuer))
                 {
                     issuer = new IssuerModel(curatedAsset.Key);
