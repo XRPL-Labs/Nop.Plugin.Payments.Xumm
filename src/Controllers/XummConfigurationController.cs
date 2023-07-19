@@ -79,6 +79,7 @@ public class XummConfigurationController : BasePaymentController
             XrplRefundDestinationTag = settings.XrplRefundDestinationTag?.ToString(),
             XrplCurrencyAndIssuer = IssuerCurrencyExtensions.GetCurrencyIdentifier(settings.XrplIssuer, settings.XrplCurrency),
             XrplPathfinding = settings.XrplPathfinding,
+            XrplPathfindingFallback = settings.XrplPathfindingFallback,
             ValidXrplAddress = settings.XrplAddress.IsAccountAddress(),
             ValidApiCredentials = pong?.Pong ?? false,
             WebhookUrl = await _xummService.GetWebhookUrlAsync(storeScope),
@@ -96,6 +97,7 @@ public class XummConfigurationController : BasePaymentController
             model.XrplRefundDestinationTag_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplRefundDestinationTag, storeScope);
             model.XrplCurrencyAndIssuer_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplCurrency, storeScope);
             model.XrplPathfinding_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplPathfinding, storeScope);
+            model.XrplPathfindingFallback_OverrideForStore = await _settingService.SettingExistsAsync(settings, x => x.XrplPathfindingFallback, storeScope);
         }
 
         if (model.ValidApiCredentials)
@@ -246,6 +248,9 @@ public class XummConfigurationController : BasePaymentController
 
         settings.XrplPathfinding = model.XrplPathfinding;
         await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplPathfinding, model.XrplPathfinding_OverrideForStore, storeScope, clearCache: false);
+
+        settings.XrplPathfindingFallback = model.XrplPathfindingFallback;
+        await _settingService.SaveSettingOverridablePerStoreAsync(settings, setting => setting.XrplPathfindingFallback, model.XrplPathfindingFallback_OverrideForStore, storeScope, clearCache: false);
 
         await _settingService.ClearCacheAsync();
 

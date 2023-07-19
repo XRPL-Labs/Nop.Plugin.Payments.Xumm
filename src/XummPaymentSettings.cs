@@ -50,6 +50,11 @@ public class XummPaymentSettings : ISettings
     public bool XrplPathfinding { get; set; }
 
     /// <summary>
+    /// Pathfinding fallback enables older Xumm clients (version &lt; 2.4.0) to process payments using a native 1:1 asset exchange instead of the modern pathfinding UX.
+    /// </summary>
+    public bool XrplPathfindingFallback { get; set; }
+
+    /// <summary>
     /// Gets or sets a additional fee
     /// </summary>
     public decimal AdditionalFee { get; set; }
