@@ -30,8 +30,10 @@ public class ConfigurationModelValidator : BaseNopValidator<ConfigurationModel>
         _storeContext = storeContext;
         _xummService = xummService;
 
+        var storeScope = GetActiveStoreScope();
+
         // API Settings section
-        WhenAsync(async (x, ct) => await AllStoresSelectedAsync(), () =>
+        When((x, ct) => storeScope == 0, () => // All Stores selected
         {
             // Validating API credentials can't be done for specific stores to be able to remove custom values.
             // Unchecking the custom value results in null meaning that we fallback on the all stores configuration.
@@ -64,7 +66,7 @@ public class ConfigurationModelValidator : BaseNopValidator<ConfigurationModel>
            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.ApiSecret.Invalid"));
 
         // XRPL Settings section
-        WhenAsync(async (x, ct) => await ValidApiCredentialsAsync(), () =>
+        When((x, ct) => ValidApiCredentialsAsync(storeScope), () =>
         {
             RuleFor(x => x.XrplAddress).Must((x, context) =>
                 {
@@ -100,17 +102,22 @@ public class ConfigurationModelValidator : BaseNopValidator<ConfigurationModel>
             .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Payments.Xumm.Fields.AdditionalFee.ShouldBeGreaterThanOrEqualZero"));
     }
 
-    private async Task<bool> AllStoresSelectedAsync()
+    private int GetActiveStoreScope()
     {
-        var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
-        return storeScope == 0;
+        // ASP.NET's validation pipeline is not asynchronous and can't invoke asynchronous rules
+        var task = Task.Run(async () => await _storeContext.GetActiveStoreScopeConfigurationAsync());
+        task.Wait();
+
+        return task.Result;
     }
 
-    private async Task<bool> ValidApiCredentialsAsync()
+    private bool ValidApiCredentialsAsync(int storeScope)
     {
-        var storeScope = await _storeContext.GetActiveStoreScopeConfigurationAsync();
-        var pong = await _xummService.GetPongAsync(storeScope);
-        return pong?.Pong ?? false;
+        // ASP.NET's validation pipeline is not asynchronous and can't invoke asynchronous rules
+        var task = Task.Run(async () => await _xummService.GetPongAsync(storeScope));
+        task.Wait();
+
+        return task.Result?.Pong ?? false;
     }
     #endregion
 }

@@ -272,6 +272,11 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
         return Task.FromResult(new ProcessPaymentRequest());
     }
 
+    public Type GetPublicViewComponent()
+    {
+        return null;
+    }
+
     /// <summary>
     /// Gets a configuration page URL
     /// </summary>
@@ -361,7 +366,9 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.TrustLineSet"] = "Trust line for currency {0} of issuer {1} has been set.",
             ["Plugins.Payments.Xumm.Fields.XrplCurrency.MissingPrimaryStoreCurrency"] = "Store currency {0} has to exist and set as Primary Store Currency at Configuration > Currencies.",
             ["Plugins.Payments.Xumm.Fields.XrplPathfinding"] = "Pathfinding",
-            ["Plugins.Payments.Xumm.Fields.XrplPathfinding.Hint"] = "Enable pathfinding to allow payments of any token on the XRPL and still receive your configured currency.",
+            ["Plugins.Payments.Xumm.Fields.XrplPathfinding.Hint"] = "XRPL Pathfinding simplifies accepting payments in various currencies by finding the best exchange rates and routes, ensuring quick and efficient transactions for your business.",
+            ["Plugins.Payments.Xumm.Fields.XrplPathfindingFallback"] = "Pathfinding fallback",
+            ["Plugins.Payments.Xumm.Fields.XrplPathfindingFallback.Hint"] = "Pathfinding fallback enables older Xumm clients (version < 2.4.0) to process payments using a native 1:1 asset exchange instead of the modern pathfinding UX. This may result in receiving less than the requested amount due to less efficient currency conversions and potential price fluctuations during the transaction process.",
             ["Plugins.Payments.Xumm.Fields.AdditionalFee"] = "Additional fee",
             ["Plugins.Payments.Xumm.Fields.AdditionalFee.Hint"] = "Enter additional fee to charge your customers.",
             ["Plugins.Payments.Xumm.Fields.AdditionalFee.ShouldBeGreaterThanOrEqualZero"] = "The additional fee should be greater than or equal 0",
