@@ -125,6 +125,11 @@ public class XummService : IXummService
         var curatedAssets = await (await GetXummSdk(storeId)).Miscellaneous.GetCuratedAssetsAsync();
         foreach (var curatedAsset in curatedAssets.Details)
         {
+            if (XummDefaults.ShowCuratedAssetsInShortlistOnly && curatedAsset.Value.Shortlist != 1)
+            {
+                continue;
+            }
+
             foreach (var currency in curatedAsset.Value.Currencies.Values)
             {
                 if (XummDefaults.ShowCuratedAssetsInShortlistOnly && currency.Shortlist != 1)

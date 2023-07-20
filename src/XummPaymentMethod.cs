@@ -320,7 +320,6 @@ public class XummPaymentMethod : BasePlugin, IPaymentMethod
                         1. You will need a Xumm Developer account. If you don't already have one, you can sign up here: <a href=""https://apps.xumm.dev/"" target=""_blank"">https://apps.xumm.dev/</a><br />
                         2. Sign in to 'Xumm Developer Dashboard'. Go to 'Settings' tab, copy 'API Key', 'API Secret' and paste it into the same fields below.<br />
                         3. Update the webhook with URL <em>{0}</em> on the 'Application details' section of 'Settings'.<br />
-                        4. The application will restart to apply the API Credentials and the other necessary settings will be visible on valid credentials.<br />
                     </div>",
             ["Plugins.Payments.Xumm.Section.XrplSettings.Instructions"] = @"
                     <div style=""margin: 0 0 20px;"">
